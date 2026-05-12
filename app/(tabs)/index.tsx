@@ -64,7 +64,7 @@ export default function Dashboard() {
           </View>
           <View style={styles.progressCircle}>
             <TrendingUp size={30} color="#ffffff" />
-          </Text>
+          </View>
         </View>
         <TouchableOpacity style={styles.mainCardButton}>
           <Text style={styles.mainCardButtonText}>View Full Schedule</Text>

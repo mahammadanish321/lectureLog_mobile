@@ -2,11 +2,12 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your local IP address if testing on a physical device
-const BASE_URL = 'http://10.0.2.2:3000/api'; 
+// Automatically use the cloud backend URL from .env
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://lecturelog-backend.onrender.com/api'; 
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 60000, // Increased to 60s for Render cold starts
 });
 
 // Add a request interceptor to add the auth token
