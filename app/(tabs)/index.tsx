@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, Dimensions, Image, StatusBar } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import {
@@ -67,7 +67,7 @@ export default function Dashboard() {
                 <View style={styles.integratedNavbar}>
                   <View style={styles.navbarLeft}>
                     <Image source={{ uri: LOGO_URL }} style={styles.logo} />
-                    <Text style={styles.appNameLight} numberOfLines={1}>LectureLog</Text>
+                    <Text style={styles.appNameLight} numberOfLines={1}>Merge</Text>
                   </View>
                   <View style={styles.navbarRight}>
                     <TouchableOpacity style={styles.notifBtnLight}>
@@ -105,7 +105,7 @@ export default function Dashboard() {
           <View style={styles.navbarStandalone}>
             <View style={styles.navbarLeft}>
               <Image source={{ uri: LOGO_URL }} style={styles.logo} />
-              <Text style={styles.appName} numberOfLines={1}>LectureLog</Text>
+              <Text style={styles.appName} numberOfLines={1}>Merge</Text>
             </View>
             <View style={styles.navbarRight}>
               <TouchableOpacity style={styles.notifBtn}>

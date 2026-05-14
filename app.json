@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "LectureLog_mobile",
-    "slug": "LectureLog_mobile",
+    "name": "Merge_mobile",
+    "slug": "Merge_mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "lecturelogmobile",
+    "scheme": "Mergemobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

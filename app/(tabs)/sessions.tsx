@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import { Clock, Plus, CalendarDays, Star, BookOpen, User, MapPin, ChevronDown } from 'lucide-react-native';

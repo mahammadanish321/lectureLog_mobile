@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import { User, Mail, ShieldCheck, LogOut, ChevronRight, Bell, Settings, Award } from 'lucide-react-native';
@@ -33,7 +33,7 @@ export default function YouScreen() {
               <View style={styles.onlineBadge} />
             </View>
             <Text style={styles.name}>{user?.name || 'User'}</Text>
-            <Text style={styles.email}>{user?.email || 'user@lecturelog.edu'}</Text>
+            <Text style={styles.email}>{user?.email || 'user@Merge.edu'}</Text>
           </View>
 
           <View style={styles.statsCard}>

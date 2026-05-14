@@ -1,9 +1,9 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your local IP address if testing on a physical device
 // Automatically use the cloud backend URL from .env
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://lecturelog-backend.onrender.com/api'; 
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://Merge-backend.onrender.com/api'; 
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

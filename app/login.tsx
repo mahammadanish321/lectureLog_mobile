@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -246,7 +246,7 @@ export default function LoginScreen() {
 
   const handleSuccessDone = () => {
     if (role === 'admin') {
-      Linking.openURL('https://lecturelog-frontend.vercel.app');
+      Linking.openURL('https://Merge-frontend.vercel.app');
     } else {
       setView('login');
     }
@@ -292,7 +292,7 @@ export default function LoginScreen() {
               style={styles.logoImage}
               resizeMode="contain"
             />
-            <Text style={styles.brandTitle}>LectureLog</Text>
+            <Text style={styles.brandTitle}>Merge</Text>
           </View>
 
           {/* --- VIEW: LOGIN --- */}
@@ -551,7 +551,7 @@ export default function LoginScreen() {
             <View style={styles.viewWrapper}>
               <View style={styles.welcomeSection}>
                 <Text style={styles.title}>Register College</Text>
-                <Text style={styles.subtitle}>Set up your institution on LectureLog</Text>
+                <Text style={styles.subtitle}>Set up your institution on Merge</Text>
               </View>
 
               <View style={styles.formContainer}>

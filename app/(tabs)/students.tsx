@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList, TextInput } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import { Users, Search, Filter, User, UserPlus, MoreVertical, Mail, ChevronRight } from 'lucide-react-native';
