@@ -1,16 +1,10 @@
-﻿import { Tabs } from 'expo-router';
-import React, { useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Dimensions, Platform } from 'react-native';
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { LayoutDashboard, Calendar, User, Clock, Users } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring 
-} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/context/AuthContext';
-
-const { width } = Dimensions.get('window');
 
 interface TabBarProps {
   state: any;
@@ -19,96 +13,99 @@ interface TabBarProps {
 }
 
 function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
-  const [layouts, setLayouts] = React.useState<Record<number, { width: number, x: number, tabX: number }>>({});
-  
-  const pillWidth = useSharedValue(0);
-  const pillX = useSharedValue(0);
+  const { user } = useAuth();
+  const canManage = user?.role === 'teacher' || user?.role === 'admin';
 
+  // Force filter management routes for non-privileged users
   const visibleRoutes = state.routes.filter((route: any) => {
     const { options } = descriptors[route.key];
-    return options.href !== null;
+    
+    // 1. Hide if explicitly told to via href: null
+    if (options.href === null) return false;
+    
+    // 2. Extra safety: Hide management routes for students by name
+    if ((route.name === 'students' || route.name === 'sessions') && !canManage) {
+      return false;
+    }
+    
+    return true;
   });
 
   const activeRoute = state.routes[state.index];
-  const visibleIndex = visibleRoutes.findIndex(r => r.key === activeRoute.key);
-
-  useEffect(() => {
-    if (visibleIndex !== -1 && layouts[visibleIndex]) {
-      const { width: w, x, tabX } = layouts[visibleIndex];
-      pillWidth.value = withSpring(w + 24, { damping: 20, stiffness: 150 });
-      pillX.value = withSpring(tabX + x - 12, { damping: 20, stiffness: 150 });
-    }
-  }, [visibleIndex, layouts]);
-
-  const animatedPillStyle = useAnimatedStyle(() => {
-    return {
-      width: pillWidth.value,
-      transform: [{ translateX: pillX.value }],
-    };
-  });
 
   return (
     <View style={styles.tabBarContainer}>
-      <BlurView intensity={100} tint="dark" style={styles.tabBar}>
-        <Animated.View style={[styles.activePill, animatedPillStyle]} />
+      <View style={styles.liquidWrapper}>
+        <BlurView intensity={95} tint="light" style={styles.tabBar}>
+          {/* Liquid Sheen - Primary Gloss */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0.1)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.glossyOverlay}
+          />
+          
+          {/* Liquid Sheen - Secondary Reflection */}
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.reflectionOverlay}
+          />
 
-        {visibleRoutes.map((route: any, index: number) => {
-          const { options } = descriptors[route.key];
-          const label = options.title !== undefined ? options.title : route.name;
-          const isFocused = activeRoute.key === route.key;
+          <View style={styles.tabsInner}>
+            {visibleRoutes.map((route: any) => {
+              const { options } = descriptors[route.key];
+              const label = options.title !== undefined ? options.title : route.name;
+              const isFocused = activeRoute.key === route.key;
 
-          const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-          };
+              const onPress = () => {
+                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+              };
 
-          const activeColor = '#fff';
-          const inactiveColor = 'rgba(255,255,255,0.4)';
+              const activeColor = '#105934'; // Brand Green
+              const inactiveColor = 'rgba(16, 89, 52, 0.45)';
 
-          const renderIcon = (color: string) => {
-            const size = 20;
-            const strokeWidth = isFocused ? 2.5 : 2;
-            switch (route.name) {
-              case 'index': return <LayoutDashboard size={size} color={color} strokeWidth={strokeWidth} />;
-              case 'students': return <Users size={size} color={color} strokeWidth={strokeWidth} />;
-              case 'sessions': return <Clock size={size} color={color} strokeWidth={strokeWidth} />;
-              case 'schedule': return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
-              case 'you': return <User size={size} color={color} strokeWidth={strokeWidth} />;
-              default: return <LayoutDashboard size={size} color={color} strokeWidth={strokeWidth} />;
-            }
-          };
+              const renderIcon = (color: string) => {
+                const size = 22;
+                const strokeWidth = isFocused ? 2.5 : 2;
+                switch (route.name) {
+                  case 'index': return <LayoutDashboard size={size} color={color} strokeWidth={strokeWidth} />;
+                  case 'students': return <Users size={size} color={color} strokeWidth={strokeWidth} />;
+                  case 'sessions': return <Clock size={size} color={color} strokeWidth={strokeWidth} />;
+                  case 'schedule': return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
+                  case 'you': return <User size={size} color={color} strokeWidth={strokeWidth} />;
+                  default: return <LayoutDashboard size={size} color={color} strokeWidth={strokeWidth} />;
+                }
+              };
 
-          const [tabX, setTabX] = React.useState(0);
-
-          return (
-            <TouchableOpacity 
-              key={route.key} 
-              onPress={onPress} 
-              style={styles.tabItem} 
-              activeOpacity={0.8}
-              onLayout={(e) => setTabX(e.nativeEvent.layout.x)}
-            >
-              <View 
-                onLayout={(e) => {
-                  const { width: w, x } = e.nativeEvent.layout;
-                  setLayouts(prev => ({ ...prev, [index]: { width: w, x, tabX } }));
-                }}
-                style={styles.iconContainer}
-              >
-                {renderIcon(isFocused ? activeColor : inactiveColor)}
-                {isFocused && <Text style={styles.tabLabel} numberOfLines={1}>{label}</Text>}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </BlurView>
+              return (
+                <TouchableOpacity 
+                  key={route.key} 
+                  onPress={onPress} 
+                  style={styles.tabItem} 
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.iconContainerVertical}>
+                    {renderIcon(isFocused ? activeColor : inactiveColor)}
+                    <Text style={[styles.tabLabel, { color: isFocused ? activeColor : inactiveColor }]}>
+                      {label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BlurView>
+      </View>
     </View>
   );
 }
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const isTeacher = user?.role === 'teacher';
+  const canManage = user?.role === 'teacher' || user?.role === 'admin';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -117,8 +114,20 @@ export default function TabLayout() {
         screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="index" options={{ title: 'Home' }} />
-        <Tabs.Screen name="students" options={{ title: 'Students', href: isTeacher ? '/students' : null }} />
-        <Tabs.Screen name="sessions" options={{ title: 'Sessions', href: isTeacher ? '/sessions' : null }} />
+        <Tabs.Screen 
+          name="students" 
+          options={{ 
+            title: 'Students', 
+            href: canManage ? '/students' : null 
+          }} 
+        />
+        <Tabs.Screen 
+          name="sessions" 
+          options={{ 
+            title: 'Sessions', 
+            href: canManage ? '/sessions' : null 
+          }} 
+        />
         <Tabs.Screen name="schedule" options={{ title: 'Routine' }} />
         <Tabs.Screen name="you" options={{ title: 'You' }} />
       </Tabs>
@@ -129,47 +138,70 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBarContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 40 : 30,
+    bottom: Platform.OS === 'ios' ? 35 : 25,
     left: 20,
     right: 20,
-    height: 70,
+    height: 75,
+    zIndex: 1000,
+  },
+  liquidWrapper: {
+    flex: 1,
+    borderRadius: 38,
+    backgroundColor: 'transparent',
+    // Soft glass shadow
+    shadowColor: '#105934',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   tabBar: {
     flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    borderRadius: 35,
+    borderRadius: 38,
     overflow: 'hidden',
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(16, 89, 52, 0.08)', // Brand green with ultra-low opacity
   },
-  activePill: {
+  glossyOverlay: {
     position: 'absolute',
-    height: 52,
-    backgroundColor: '#105934',
-    borderRadius: 26,
-    zIndex: 1,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    borderTopLeftRadius: 38,
+    borderTopRightRadius: 38,
+  },
+  reflectionOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+    borderBottomLeftRadius: 38,
+    borderBottomRightRadius: 38,
+  },
+  tabsInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    zIndex: 2,
   },
-  iconContainer: {
-    flexDirection: 'row',
+  iconContainerVertical: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    gap: 8,
+    gap: 4,
+    zIndex: 10,
   },
   tabLabel: {
-    color: '#fff',
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
 });

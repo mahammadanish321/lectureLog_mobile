@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -66,7 +66,7 @@ export default function LoginScreen() {
     orgSlug: ''
   });
 
-  const { signIn, setUser } = useAuth();
+  const { signIn } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

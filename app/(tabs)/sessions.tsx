@@ -1,21 +1,77 @@
-﻿import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
-import { Clock, Plus, CalendarDays, Star, BookOpen, User, MapPin, ChevronDown } from 'lucide-react-native';
+import { Clock, Plus, CalendarDays, Star, BookOpen, User, MapPin, ChevronDown, XCircle } from 'lucide-react-native';
+import api from '../../src/api/client';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function SessionsScreen() {
   const [expandedDate, setExpandedDate] = useState('Today');
 
-  const sessions = [
-    { id: '1', subject: 'Data Structures', type: 'Regular', year: '3', stream: 'CSE', room: 'Lab-01', time: '09:00 AM - 11:00 AM', status: 'active' },
-    { id: '2', subject: 'Database Systems', type: 'Regular', year: '3', stream: 'CSE', room: 'Hall-B', time: '11:00 AM - 01:00 PM', status: 'scheduled' },
-    { id: '3', subject: 'Custom Workshop', type: 'Custom', year: '3', stream: 'CSE', room: 'Studio-1', time: '02:00 PM - 04:00 PM', status: 'scheduled' },
-  ];
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const isTeacher = user?.role === 'teacher';
+
+  const formatTime = (time: any) => {
+    if (!time) return '--:--';
+    const timeStr = String(time);
+    if (timeStr.includes('Z')) return new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let t = timeStr;
+    if (timeStr.includes('T')) t = timeStr.split('T')[1].split('.')[0];
+    if (t.includes(':')) {
+      const parts = t.split(':');
+      if (parts.length >= 2) {
+        let hours = parseInt(parts[0]);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        return `${hours}:${minutes} ${ampm}`;
+      }
+    }
+    return timeStr;
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const response = await api.get('/sessions');
+      let data = response.data || [];
+      if (isTeacher) {
+        data = data.filter((s: any) => String(s.teacher_name).trim().toLowerCase() === String(user?.name || '').trim().toLowerCase());
+      }
+      setSessions(data);
+    } catch (err) {
+      console.warn('Failed to fetch sessions:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions();
+  }, [user, isTeacher]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSessions();
+  };
+
+  const todayDate = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  const liveCount = sessions.filter((s: any) => s.status === 'active').length;
+  const upcomingCount = sessions.filter((s: any) => s.status === 'scheduled').length;
+  const customCount = sessions.filter((s: any) => s.type === 'custom' || s.type === 'extra').length;
+  const cancelledCount = sessions.filter((s: any) => s.status === 'cancelled').length;
 
   const stats = [
-    { label: 'Live', val: 1, color: '#105934', icon: Clock },
-    { label: 'Upcoming', val: 2, color: '#2563eb', icon: CalendarDays },
-    { label: 'Custom', val: 1, color: '#d97706', icon: Star },
+    { label: 'Live', val: liveCount, color: '#105934', icon: Clock },
+    { label: 'Upcoming', val: upcomingCount, color: '#2563eb', icon: CalendarDays },
+    { label: 'Custom', val: customCount, color: '#d97706', icon: Star },
+    { label: 'Cancelled', val: cancelledCount, color: '#ef4444', icon: XCircle },
   ];
 
   return (
@@ -43,39 +99,56 @@ export default function SessionsScreen() {
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#105934" />}
+        >
           <TouchableOpacity 
             style={styles.dateHeader} 
-            onPress={() => setExpandedDate(expandedDate === 'Today' ? null : 'Today')}
+            onPress={() => setExpandedDate(expandedDate === 'Today' ? '' : 'Today')}
           >
             <View style={styles.dateHeaderLeft}>
               <View style={styles.todayChip}><Text style={styles.todayChipText}>TODAY</Text></View>
-              <Text style={styles.dateText}>12 May, 2024</Text>
+              <Text style={styles.dateText}>{todayDate}</Text>
             </View>
             <ChevronDown size={18} color="#64748b" />
           </TouchableOpacity>
 
-          {expandedDate === 'Today' && sessions.map((item) => (
-            <View key={item.id} style={[styles.sessionCard, item.status === 'active' ? styles.activeCard : null]}>
-              <View style={[styles.typeBar, { backgroundColor: item.type === 'Custom' ? '#f59e0b' : '#105934' }]} />
-              <View style={styles.cardContent}>
-                <View style={styles.cardMain}>
-                  <Text style={styles.subjectText}>{item.subject}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? '#f0fdf4' : '#eff6ff' }]}>
-                    <Text style={[styles.statusText, { color: item.status === 'active' ? '#105934' : '#2563eb' }]}>
-                      {item.status === 'active' ? 'Live' : 'Upcoming'}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}><User size={12} color="#94a3b8" /><Text style={styles.metaText}>Year {item.year} · {item.stream}</Text></View>
-                  <View style={styles.metaItem}><MapPin size={12} color="#94a3b8" /><Text style={styles.metaText}>{item.room}</Text></View>
-                </View>
-                <View style={styles.metaItem}><Clock size={12} color="#94a3b8" /><Text style={styles.metaText}>{item.time}</Text></View>
+          {expandedDate === 'Today' && (
+            loading ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#105934" />
               </View>
-            </View>
-          ))}
+            ) : sessions.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <Text style={{ color: '#94a3b8', fontSize: 16 }}>No sessions today.</Text>
+              </View>
+            ) : sessions.map((item) => (
+              <View key={item.id} style={[styles.sessionCard, item.status === 'active' ? styles.activeCard : null]}>
+                <View style={[styles.typeBar, { backgroundColor: item.type === 'custom' ? '#f59e0b' : item.status === 'cancelled' ? '#ef4444' : '#105934' }]} />
+                <View style={styles.cardContent}>
+                  <View style={styles.cardMain}>
+                    <Text style={[styles.subjectText, item.status === 'cancelled' && { textDecorationLine: 'line-through', color: '#94a3b8' }]}>{item.subject_name}</Text>
+                    <View style={[styles.statusBadge, { 
+                      backgroundColor: item.status === 'active' ? '#f0fdf4' : item.status === 'cancelled' ? '#fef2f2' : '#eff6ff' 
+                    }]}>
+                      <Text style={[styles.statusText, { 
+                        color: item.status === 'active' ? '#105934' : item.status === 'cancelled' ? '#ef4444' : '#2563eb' 
+                      }]}>
+                        {item.status === 'active' ? 'Live' : item.status === 'cancelled' ? 'Cancelled' : 'Upcoming'}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaItem}><User size={12} color="#94a3b8" /><Text style={styles.metaText}>Year {item.year} · {item.stream}</Text></View>
+                    <View style={styles.metaItem}><MapPin size={12} color="#94a3b8" /><Text style={styles.metaText}>{item.classroom_name}</Text></View>
+                  </View>
+                  <View style={styles.metaItem}><Clock size={12} color="#94a3b8" /><Text style={styles.metaText}>{formatTime(item.start_time)} - {formatTime(item.end_time)}</Text></View>
+                </View>
+              </View>
+            ))
+          )}
           
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -124,8 +197,9 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
     marginBottom: 20,
   },
   statPill: {
