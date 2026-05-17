@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { NotificationProvider } from '../src/context/NotificationContext';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -52,8 +53,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <RootLayoutNav />
-          <StatusBar style="auto" />
+          <NotificationProvider>
+            <RootLayoutNav />
+            <StatusBar style="auto" />
+          </NotificationProvider>
         </ThemeProvider>
       </AuthProvider>
     </GestureHandlerRootView>

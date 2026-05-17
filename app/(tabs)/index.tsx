@@ -5,13 +5,13 @@ import {
   Users, Calendar, CheckCircle, TrendingUp, Clock,
   MapPin, User, Activity, AlertCircle, ChevronRight,
   BookOpen, Plus, Camera, MonitorPlay, XCircle, Bell,
-  WifiOff, RefreshCw
+  WifiOff, RefreshCw, Info
 } from 'lucide-react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import { useRouter } from 'expo-router';
+import { useNotifications } from '../../src/context/NotificationContext';
 import api from '../../src/api/client';
-import { io } from 'socket.io-client';
 
 const { width } = Dimensions.get('window');
 const LOGO_ASSET = require('../../assets/images/icon.png');
@@ -19,8 +19,10 @@ const AVATAR_COLORS = ['#4ade80', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllReadNotifications } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
-  const [aiStatus, setAiStatus] = useState('connecting'); // 'active', 'lagging', 'offline', 'connecting'
+  const [aiStatus, setAiStatus] = useState('connecting');
   const isTeacher = user?.role === 'teacher';
 
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -32,13 +34,12 @@ export default function Dashboard() {
   const [studentAttendance, setStudentAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [filterTab, setFilterTab] = useState('all');
 
-  const notifications = [
-    { id: '1', title: 'New Attendance Alert', message: '10 students marked present in Data Structures.', time: '2m ago', type: 'success' },
-    { id: '2', title: 'System Update', message: 'Merge AI processing speed improved by 20%.', time: '1h ago', type: 'info' },
-    { id: '3', title: 'Session Reminder', message: 'Database Systems starts in 15 minutes.', time: '3h ago', type: 'warning' },
-    { id: '4', title: 'Welcome to Merge', message: 'Explore your new premium digital identity.', time: '1d ago', type: 'success' },
-  ];
+  const filteredNotifs = React.useMemo(() => {
+    if (filterTab === 'unread') return notifications.filter(n => !n.is_read);
+    return notifications;
+  }, [notifications, filterTab]);
 
   const formatTime = (time: any) => {
     if (!time) return '--:--';
@@ -344,7 +345,11 @@ export default function Dashboard() {
           <View style={styles.navbarRight}>
             <TouchableOpacity style={styles.notifBtn} onPress={() => setShowNotifications(true)}>
               <Bell size={22} color="#0f172a" strokeWidth={2.2} />
-              <View style={styles.notifDot} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -359,29 +364,101 @@ export default function Dashboard() {
           <View style={styles.modalOverlay}>
             <View style={styles.notifModal}>
               <View style={styles.notifHeader}>
-                <Text style={styles.notifTitle}>Notifications</Text>
+                <View>
+                  <Text style={styles.notifTitle}>Notifications</Text>
+                  <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Real-time updates & alerts</Text>
+                </View>
                 <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.closeBtn}>
                   <XCircle size={24} color="#64748b" />
                 </TouchableOpacity>
               </View>
 
+              <View style={styles.notifSubbar}>
+                <View style={styles.notifTabs}>
+                  <TouchableOpacity 
+                    style={[styles.notifTabBtn, filterTab === 'all' && styles.notifTabBtnActive]} 
+                    onPress={() => setFilterTab('all')}
+                  >
+                    <Text style={[styles.notifTabBtnText, filterTab === 'all' && styles.notifTabBtnTextActive]}>
+                      All ({notifications.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.notifTabBtn, filterTab === 'unread' && styles.notifTabBtnActive]} 
+                    onPress={() => setFilterTab('unread')}
+                  >
+                    <Text style={[styles.notifTabBtnText, filterTab === 'unread' && styles.notifTabBtnTextActive]}>
+                      Unread ({unreadCount})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.notifActions}>
+                  {unreadCount > 0 && (
+                    <TouchableOpacity onPress={markAllAsRead}>
+                      <Text style={styles.notifActionText}>Mark all read</Text>
+                    </TouchableOpacity>
+                  )}
+                  {notifications.some(n => n.is_read) && (
+                    <TouchableOpacity onPress={clearAllReadNotifications}>
+                      <Text style={[styles.notifActionText, { color: '#94a3b8' }]}>Clear read</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
               <ScrollView showsVerticalScrollIndicator={false}>
-                {notifications.map((notif) => (
-                  <View key={notif.id} style={styles.notifItem}>
-                    <View style={[styles.notifIcon, { 
-                      backgroundColor: notif.type === 'success' ? '#f0fdf4' : notif.type === 'warning' ? '#fffbeb' : '#f0f9ff' 
-                    }]}>
-                      <Bell size={18} color={notif.type === 'success' ? '#105934' : notif.type === 'warning' ? '#d97706' : '#0284c7'} />
-                    </View>
-                    <View style={styles.notifContent}>
-                      <View style={styles.notifRow}>
-                        <Text style={styles.notifItemTitle}>{notif.title}</Text>
-                        <Text style={styles.notifTime}>{notif.time}</Text>
-                      </View>
-                      <Text style={styles.notifMessage}>{notif.message}</Text>
-                    </View>
+                {filteredNotifs.length === 0 ? (
+                  <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+                    <Bell size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
+                    <Text style={{ fontSize: 14, color: '#64748b', fontWeight: '700' }}>
+                      {filterTab === 'unread' ? 'No unread notifications' : 'No new notifications'}
+                    </Text>
                   </View>
-                ))}
+                ) : (
+                  filteredNotifs.map((notif) => (
+                    <TouchableOpacity 
+                      key={notif.id} 
+                      style={[styles.notifItem, !notif.is_read && styles.unreadItem]}
+                      activeOpacity={notif.redirect_url ? 0.7 : 1}
+                      onPress={() => {
+                        if (!notif.is_read) markAsRead(notif.id);
+                        if (notif.redirect_url) {
+                          setShowNotifications(false);
+                          router.push(notif.redirect_url as any);
+                        }
+                      }}
+                    >
+                      {notif.sender_image ? (
+                        <Image source={{ uri: notif.sender_image }} style={styles.notifAvatar} />
+                      ) : (
+                        <View style={[styles.notifIcon, { 
+                          backgroundColor: notif.priority === 'critical' ? '#fee2e2' : '#f1f5f9' 
+                        }]}>
+                          {notif.priority === 'critical' ? <AlertCircle size={20} color="#ef4444" /> : <Info size={20} color="#105934" />}
+                        </View>
+                      )}
+
+                      <View style={styles.notifContent}>
+                        <View style={styles.notifRow}>
+                          <View style={[styles.notifPriorityBadge, notif.priority === 'critical' ? styles.criticalBadge : { backgroundColor: '#dcfce7' }]}>
+                            <Text style={notif.priority === 'critical' ? styles.criticalBadgeText : styles.normalBadgeText}>
+                              {String(notif.session_type || notif.priority || 'system').toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={styles.notifTime}>
+                            {new Date(notif.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                        </View>
+                        {notif.title && <Text style={styles.notifItemTitle}>{notif.title}</Text>}
+                        <Text style={styles.notifMessage}>{notif.message}</Text>
+                      </View>
+
+                      <TouchableOpacity style={{ padding: 8 }} onPress={() => deleteNotification(notif.id)}>
+                        <XCircle size={16} color="#cbd5e1" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1116,5 +1193,119 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '500',
     lineHeight: 18,
-  }
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  notifBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  notifSubbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    marginBottom: 16,
+  },
+  notifTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  notifTabBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+  },
+  notifTabBtnActive: {
+    backgroundColor: '#105934',
+  },
+  notifTabBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  notifTabBtnTextActive: {
+    color: '#ffffff',
+  },
+  notifActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  notifActionText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#105934',
+  },
+  notifAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    marginRight: 16,
+  },
+  unreadItem: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+  },
+  notifPriorityBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  criticalBadge: { backgroundColor: '#fee2e2' },
+  criticalBadgeText: { color: '#ef4444', fontSize: 9, fontWeight: '900' },
+  normalBadgeText: { color: '#105934', fontSize: 9, fontWeight: '900' },
+  fullProgressValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  fullProgressSub: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  fullProgressWrapper: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  fullProgressLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  cardProgressFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(16, 89, 52, 0.05)',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });
+
+
+

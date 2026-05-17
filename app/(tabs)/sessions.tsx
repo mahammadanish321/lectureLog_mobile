@@ -94,7 +94,7 @@ export default function SessionsScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm',
-        onPress: async (password) => {
+        onPress: async (password: string | undefined) => {
           if (!password) return;
           try {
             await api.post(`/schedules/${id}/cancel`, { password });
@@ -112,7 +112,7 @@ export default function SessionsScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm',
-        onPress: async (password) => {
+        onPress: async (password: string | undefined) => {
           if (!password) return;
           try {
             await api.post('/sessions/cancel', { id, password });
