@@ -35,6 +35,7 @@ export default function SessionsScreen() {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
+  const isStudent = user?.role === 'student';
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [teacherSchedules, setTeacherSchedules] = useState<any[]>([]);
@@ -70,8 +71,20 @@ export default function SessionsScreen() {
         );
         const schRes = await api.get('/schedules/my');
         setTeacherSchedules(schRes.data || []);
+      } else if (isStudent) {
+        const studentYear = user?.year || '1';
+        const studentStream = user?.stream || 'CSE';
+        dbSessions = dbSessions.filter(
+          (s: any) =>
+            String(s.year) === String(studentYear) &&
+            String(s.stream) === String(studentStream)
+        );
+        const schRes = await api.get(`/schedules?year=${studentYear}&stream=${studentStream}`);
+        setTeacherSchedules(schRes.data || []);
       } else {
-        setTeacherSchedules([]);
+        // admin
+        const schRes = await api.get('/schedules');
+        setTeacherSchedules(schRes.data || []);
       }
       setSessions(dbSessions);
     } catch (err) {
