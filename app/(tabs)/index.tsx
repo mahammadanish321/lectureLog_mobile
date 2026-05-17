@@ -477,7 +477,8 @@ export default function Dashboard() {
                         if (!notif.is_read) markAsRead(notif.id);
                         if (notif.redirect_url) {
                           setShowNotifications(false);
-                          router.push(notif.redirect_url as any);
+                          const mobileUrl = notif.redirect_url.replace(/^\/routine/, '/schedule');
+                          router.push(mobileUrl as any);
                         }
                       }}
                     >

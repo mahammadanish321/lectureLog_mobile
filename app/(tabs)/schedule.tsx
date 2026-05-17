@@ -27,6 +27,7 @@ import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import api from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { AttendanceModal } from '../../src/components/AttendanceModal';
+import { useLocalSearchParams } from 'expo-router';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FULL_DAYS: { [key: string]: string } = {
@@ -69,6 +70,8 @@ export default function ScheduleScreen() {
   const isStudent = user?.role === 'student';
   const canManage = isTeacher || user?.role === 'admin';
 
+  const { week_start, highlight } = useLocalSearchParams<{ week_start?: string; highlight?: string }>();
+
   const [selectedDay, setSelectedDay] = useState(getCurrentDayName());
   const [selectedYear, setSelectedYear] = useState(
     user?.year
@@ -97,6 +100,20 @@ export default function ScheduleScreen() {
     records: [] as any[],
     title: '',
   });
+
+  useEffect(() => {
+    if (week_start) {
+      const targetDate = new Date(week_start);
+      if (!isNaN(targetDate.getTime())) {
+        const currentMonday = getWeekStart(0);
+        const diffWeeks = Math.round((targetDate.getTime() - currentMonday.getTime()) / (7 * 24 * 3600 * 1000));
+        setWeekOffset(diffWeeks);
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        setSelectedDay(dayNames[targetDate.getDay()] || 'Mon');
+      }
+    }
+  }, [week_start, highlight]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -420,6 +437,9 @@ export default function ScheduleScreen() {
                           studentAttStatus = isPres ? 'present' : 'absent';
                         }
 
+                        const targetId = item.is_custom ? item.id : (matchingSession ? matchingSession.id : item.id);
+                        const isHighlighted = highlight && String(targetId) === String(highlight);
+
                         return (
                           <View
                             key={item.id + '_' + mIdx}
@@ -430,10 +450,20 @@ export default function ScheduleScreen() {
                                 marginBottom: mIdx < allMatches.length - 1 ? 8 : 0,
                               },
                               isCancelled && styles.cancelledCardBg,
+                              isHighlighted && {
+                                borderWidth: 2.5,
+                                borderColor: '#eab308',
+                                backgroundColor: '#fefce8',
+                              }
                             ]}
                           >
-                            <View style={[styles.typeBar, { backgroundColor: statusColor }]} />
+                            <View style={[styles.typeBar, { backgroundColor: isHighlighted ? '#eab308' : statusColor }]} />
                             <View style={styles.cardHeader}>
+                              {isHighlighted && (
+                                <View style={{ backgroundColor: '#fef08a', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 1, borderColor: '#facc15' }}>
+                                  <Text style={{ color: '#854d0e', fontSize: 10, fontWeight: '900' }}>★ HIGHLIGHTED CLASS</Text>
+                                </View>
+                              )}
                               <View style={styles.subjectRow}>
                                 <Text style={[styles.subjectText, isCancelled && styles.cancelledText]}>
                                   {item.subject_name}

@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import {
@@ -89,40 +91,58 @@ export default function SessionsScreen() {
     fetchSessionsData();
   };
 
-  const handleCancelRoutine = async (id: any) => {
-    Alert.prompt('Cancel Class', 'Enter your password to cancel this class:', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async (password: string | undefined) => {
-          if (!password) return;
-          try {
-            await api.post(`/schedules/${id}/cancel`, { password });
-            fetchSessionsData();
-          } catch (err: any) {
-            Alert.alert('Failed', err.response?.data?.message || err.message);
-          }
-        },
-      },
-    ], 'secure-text');
+  const [passwordModal, setPasswordModal] = useState({
+    visible: false,
+    id: null as any,
+    isCustom: false,
+    password: '',
+    loading: false,
+    title: '',
+    subtitle: '',
+  });
+
+  const handleCancelRoutine = (id: any) => {
+    setPasswordModal({
+      visible: true,
+      id,
+      isCustom: false,
+      password: '',
+      loading: false,
+      title: 'Cancel Routine Class',
+      subtitle: 'Enter your account password to cancel this routine class:',
+    });
   };
 
-  const handleCancelCustomSession = async (id: any) => {
-    Alert.prompt('Cancel Custom Class', 'Enter your password to cancel this custom session:', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async (password: string | undefined) => {
-          if (!password) return;
-          try {
-            await api.post('/sessions/cancel', { id, password });
-            fetchSessionsData();
-          } catch (err: any) {
-            Alert.alert('Failed', err.response?.data?.message || err.message);
-          }
-        },
-      },
-    ], 'secure-text');
+  const handleCancelCustomSession = (id: any) => {
+    setPasswordModal({
+      visible: true,
+      id,
+      isCustom: true,
+      password: '',
+      loading: false,
+      title: 'Cancel Custom Class',
+      subtitle: 'Enter your account password to cancel this custom session:',
+    });
+  };
+
+  const submitCancelSession = async () => {
+    if (!passwordModal.password) {
+      Alert.alert('Required', 'Please enter your password.');
+      return;
+    }
+    setPasswordModal((prev) => ({ ...prev, loading: true }));
+    try {
+      if (passwordModal.isCustom) {
+        await api.post('/sessions/cancel', { id: passwordModal.id, password: passwordModal.password });
+      } else {
+        await api.post(`/schedules/${passwordModal.id}/cancel`, { password: passwordModal.password });
+      }
+      setPasswordModal((prev) => ({ ...prev, visible: false, loading: false }));
+      fetchSessionsData();
+    } catch (err: any) {
+      Alert.alert('Failed', err.response?.data?.message || err.message);
+      setPasswordModal((prev) => ({ ...prev, loading: false }));
+    }
   };
 
   const openAttendance = async (session: any, titleStr?: string) => {
@@ -523,6 +543,50 @@ export default function SessionsScreen() {
           records={attModal.records}
           title={attModal.title}
         />
+
+        {/* Custom Password Modal */}
+        <Modal
+          visible={passwordModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPasswordModal((prev) => ({ ...prev, visible: false }))}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{passwordModal.title}</Text>
+              <Text style={styles.modalSubtitle}>{passwordModal.subtitle}</Text>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter password..."
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+                value={passwordModal.password}
+                onChangeText={(text) => setPasswordModal((prev) => ({ ...prev, password: text }))}
+                editable={!passwordModal.loading}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnCancel]}
+                  onPress={() => setPasswordModal((prev) => ({ ...prev, visible: false }))}
+                  disabled={passwordModal.loading}
+                >
+                  <Text style={styles.modalBtnCancelText}>Abort</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnConfirm]}
+                  onPress={submitCancelSession}
+                  disabled={passwordModal.loading}
+                >
+                  {passwordModal.loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalBtnConfirmText}>Confirm Cancel</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SwipeWrapper>
   );
@@ -747,5 +811,76 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 11,
     fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  passwordInput: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#1e293b',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBtnCancel: {
+    backgroundColor: '#f1f5f9',
+  },
+  modalBtnCancelText: {
+    color: '#64748b',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  modalBtnConfirm: {
+    backgroundColor: '#ef4444',
+    minWidth: 120,
+  },
+  modalBtnConfirmText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
