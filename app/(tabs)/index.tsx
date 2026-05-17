@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, Dimensions, Image, StatusBar, Modal } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, Dimensions, Image, StatusBar, Modal, Animated, PanResponder } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import {
   Users, Calendar, CheckCircle, TrendingUp, Clock,
@@ -34,7 +34,54 @@ export default function Dashboard() {
   const [studentAttendance, setStudentAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isNotifFull, setIsNotifFull] = useState(false);
   const [filterTab, setFilterTab] = useState('all');
+
+  const notifAnim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showNotifications) {
+      setIsNotifFull(false);
+      notifAnim.setValue(0);
+    }
+  }, [showNotifications]);
+
+  const toggleNotifExpand = () => {
+    const nextState = !isNotifFull;
+    setIsNotifFull(nextState);
+    Animated.spring(notifAnim, {
+      toValue: nextState ? 1 : 0,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 65,
+    }).start();
+  };
+
+  const notifPanResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -20) {
+          if (!isNotifFull) toggleNotifExpand();
+        } else if (gestureState.dy > 20) {
+          if (isNotifFull) toggleNotifExpand();
+          else setShowNotifications(false);
+        } else {
+          toggleNotifExpand();
+        }
+      }
+    })
+  ).current;
+
+  const { height: screenHeight } = Dimensions.get('window');
+  const notifModalHeight = notifAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [screenHeight * 0.60, screenHeight * 0.94]
+  });
+  const notifModalRadius = notifAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [32, 18]
+  });
 
   const filteredNotifs = React.useMemo(() => {
     if (filterTab === 'unread') return notifications.filter(n => !n.is_read);
@@ -357,19 +404,25 @@ export default function Dashboard() {
         {/* Notifications Modal */}
         <Modal
           visible={showNotifications}
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           onRequestClose={() => setShowNotifications(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.notifModal}>
+            <TouchableOpacity style={styles.overlayDismiss} activeOpacity={1} onPress={() => setShowNotifications(false)} />
+            <Animated.View style={[styles.notifModal, { height: notifModalHeight, maxHeight: undefined, borderTopLeftRadius: notifModalRadius as any, borderTopRightRadius: notifModalRadius as any }]}>
+              {/* Top Drag Pull Pill */}
+              <View {...notifPanResponder.panHandlers} style={styles.dragPillWrapper}>
+                <View style={styles.dragPill} />
+              </View>
+
               <View style={styles.notifHeader}>
                 <View>
                   <Text style={styles.notifTitle}>Notifications</Text>
                   <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Real-time updates & alerts</Text>
                 </View>
                 <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.closeBtn}>
-                  <XCircle size={24} color="#64748b" />
+                  <XCircle size={26} color="#64748b" />
                 </TouchableOpacity>
               </View>
 
@@ -460,7 +513,7 @@ export default function Dashboard() {
                   ))
                 )}
               </ScrollView>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
 
@@ -1126,6 +1179,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'flex-end',
   },
+  overlayDismiss: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  dragPillWrapper: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: -12,
+    marginBottom: 12,
+    width: '100%',
+  },
+  dragPill: {
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+  },
   notifModal: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 32,
@@ -1133,7 +1202,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 40,
-    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.1,
