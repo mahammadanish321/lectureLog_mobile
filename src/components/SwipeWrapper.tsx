@@ -1,7 +1,8 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
@@ -9,8 +10,10 @@ const SWIPE_THRESHOLD = width * 0.25;
 export const SwipeWrapper = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
 
-  const routes = ['/', '/schedule', '/profile'];
+  const canManage = user?.role === 'teacher' || user?.role === 'admin';
+  const routes = canManage ? ['/', '/students', '/sessions', '/schedule', '/you'] : ['/', '/schedule', '/you'];
   const currentIndex = routes.indexOf(pathname === '/index' ? '/' : pathname);
 
   const onGestureEvent = (event: any) => {

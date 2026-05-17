@@ -16,9 +16,21 @@ export const AuthProvider = ({ children }) => {
   async function loadStorageData() {
     try {
       const authDataSerialized = await AsyncStorage.getItem('userData');
+      const token = await AsyncStorage.getItem('userToken');
       if (authDataSerialized) {
         const authData = JSON.parse(authDataSerialized);
         setUser(authData);
+
+        if (token && authData?.role && authData.role !== 'admin') {
+          const endpoint = authData.role === 'student' ? '/students/me' : '/teachers/me';
+          apiClient.get(endpoint).then(res => {
+            if (res.data) {
+              const freshUser = { ...authData, ...res.data };
+              setUser(freshUser);
+              AsyncStorage.setItem('userData', JSON.stringify(freshUser));
+            }
+          }).catch(e => console.warn('Failed to refresh profile:', e));
+        }
       }
     } catch (error) {
     } finally {

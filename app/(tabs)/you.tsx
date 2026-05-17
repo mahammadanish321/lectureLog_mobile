@@ -1,16 +1,16 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
-import { 
-  LogOut, ChevronRight, Bell, ShieldCheck, Mail, Phone, MapPin, 
-  QrCode, Fingerprint, Hash
+import {
+  LogOut, ChevronRight, Bell, ShieldCheck, Mail, Phone, MapPin,
+  QrCode, Fingerprint, Hash, Building
 } from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
 } from 'react-native-reanimated';
 import { Accelerometer } from 'expo-sensors';
 
@@ -33,16 +33,18 @@ const PIVOT_OFFSET = -(STRAP_HEIGHT + 84);
 
 export default function YouScreen() {
   const { user, logout } = useAuth();
-  const tiltX = useSharedValue(0); 
+  const tiltX = useSharedValue(0);
+  const tiltY = useSharedValue(0);
 
   useEffect(() => {
-    // Ultra-subtle natural pendulum motion from the shared top pivot.
-    Accelerometer.setUpdateInterval(60);
+    // Realistic weighted pendulum motion with 3D perspective depth
+    Accelerometer.setUpdateInterval(30);
     const subscription = Accelerometer.addListener(data => {
-      tiltX.value = withSpring(data.x * 0.55, { damping: 34, stiffness: 42 });
+      tiltX.value = withSpring(data.x * 16, { damping: 16, stiffness: 45 });
+      tiltY.value = withSpring(data.y * 10, { damping: 16, stiffness: 45 });
     });
     return () => subscription.remove();
-  }, [tiltX]);
+  }, [tiltX, tiltY]);
 
   const handleLogout = () => {
     logout();
@@ -51,16 +53,19 @@ export default function YouScreen() {
   const contactDetails = [
     { icon: Mail, label: user?.email || 'anish@merge.ai' },
     { icon: Phone, label: user?.phone || '+91 98765 43210' },
-    { icon: MapPin, label: user?.address || 'Innovation Hub, Block A' },
-    { icon: Hash, label: `ID: M-${user?.id || '82941'}` },
+    { icon: Building, label: user?.organization || 'Merge Institute of Technology' },
+    { icon: Hash, label: `ID: ${user?.college_id || 'M-' + (user?.id || '41')}` },
   ];
 
   // Unified Physics
   const unifiedHangingStyle = useAnimatedStyle(() => {
     return {
       transform: [
+        { perspective: 1000 },
         { translateY: PIVOT_OFFSET },
-        { rotate: `${tiltX.value}deg` },
+        { rotateZ: `${tiltX.value}deg` },
+        { rotateY: `${tiltX.value * 0.6}deg` },
+        { rotateX: `${tiltY.value * 0.4}deg` },
         { translateY: -PIVOT_OFFSET }
       ],
     };
@@ -69,21 +74,21 @@ export default function YouScreen() {
   return (
     <SwipeWrapper>
       <View style={styles.mainContainer}>
-        <ScrollView 
-          style={styles.container} 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Immersive Identity Presentation */}
           <View style={styles.presentationArea}>
-            
+
             <Animated.View style={[styles.pendulumAssembly, unifiedHangingStyle]}>
               {/* Invisible top spacing keeps the clip/card placement stable after removing the ribbon. */}
               <View style={styles.strapContainer} />
 
               {/* 2. Unified Identity Block */}
               <View style={styles.identityBlock}>
-                
+
                 {/* ID Card Scene */}
                 <View style={styles.cardScene}>
                   {/* Back Card Peek */}
@@ -201,7 +206,7 @@ export default function YouScreen() {
 
             {/* Stable Layout Elements */}
             <View style={styles.stableUI}>
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.7} onPress={handleLogout}>
                 <LogOut size={18} color="#ef4444" />
                 <Text style={styles.logoutText}>Sign Out from Account</Text>
               </TouchableOpacity>
@@ -294,19 +299,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     opacity: 0.5,
   },
-  
+
   identityBlock: {
     alignItems: 'center',
     width: width,
   },
 
   // --- CARD SCENE ---
-  cardScene: { 
+  cardScene: {
     marginTop: -7,
-    zIndex: 10, 
-    alignItems: 'center', 
-    width: width, 
-    height: CARD_HEIGHT + 8 
+    zIndex: 10,
+    alignItems: 'center',
+    width: width,
+    height: CARD_HEIGHT + 8
   },
   backCard: { position: 'absolute', width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 20, overflow: 'hidden', transform: [{ translateY: -(CARD_HEIGHT / 2) + 26 }, { rotate: '-2.6deg' }, { translateY: (CARD_HEIGHT / 2) - 26 }, { translateX: -3 }, { translateY: 6 }] },
   peekBranding: { position: 'absolute', right: 5, top: '50%', height: 190, width: 34, marginTop: -95, alignItems: 'center', justifyContent: 'center', opacity: 0.28 },
@@ -338,7 +343,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -116,
     alignItems: 'center',
-    zIndex: 100, 
+    zIndex: 100,
   },
   hardwareStack: {
     alignItems: 'center',
@@ -362,17 +367,35 @@ const styles = StyleSheet.create({
 
   // --- STABLE ELEMENTS ---
   stableUI: {
-    marginTop: 0,
+    marginTop: 30,
     width: '100%',
     alignItems: 'center',
     zIndex: 10,
+    paddingHorizontal: 32,
   },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12 },
-  logoutText: { color: '#ef4444', fontSize: 14, fontWeight: '700' },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    borderRadius: 16,
+    width: '100%',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  logoutText: { color: '#ef4444', fontSize: 15, fontWeight: '800' },
   actionsBox: {
     width: '100%',
     paddingHorizontal: 24,
-    marginTop: 5,
+    marginTop: 20,
   },
   actionGroup: {
     backgroundColor: '#fff',

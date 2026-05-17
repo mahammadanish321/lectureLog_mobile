@@ -24,6 +24,7 @@ export default function Dashboard() {
   const isTeacher = user?.role === 'teacher';
 
   const [activeSession, setActiveSession] = useState<any>(null);
+  const [upcomingSession, setUpcomingSession] = useState<any>(null);
   const [presentStudents, setPresentStudents] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [recentArrivals, setRecentArrivals] = useState<any[]>([]);
@@ -58,6 +59,28 @@ export default function Dashboard() {
     return timeStr;
   };
 
+  const getTimeRemaining = (startTime: any) => {
+    if (!startTime) return '';
+    const now = new Date();
+    let target = new Date();
+
+    if (String(startTime).includes('T')) {
+      target = new Date(startTime);
+    } else if (String(startTime).includes(':')) {
+      const [h, m] = startTime.split(':');
+      target.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    }
+
+    const diff = target.getTime() - now.getTime();
+    if (diff <= 0) return 'Starting soon';
+
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `in ${mins} mins`;
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return `in ${hours}h ${remMins}m`;
+  };
+
   const fetchDashboardData = async () => {
     try {
       if (isTeacher) {
@@ -67,6 +90,11 @@ export default function Dashboard() {
         
         const currentActive = sessions.find((s: any) => s.status === 'active') || null;
         setActiveSession(currentActive);
+
+        const scheduledSessions = sessions.filter((s: any) => s.status === 'scheduled').sort((a: any, b: any) => {
+          return (a.start_time || '').localeCompare(b.start_time || '');
+        });
+        setUpcomingSession(scheduledSessions[0] || null);
 
         const statsRes = await api.get('/students');
         setAllStudents(statsRes.data);
@@ -79,7 +107,6 @@ export default function Dashboard() {
           });
           setPresentStudents(students);
 
-          // Get top 10 most recent arrivals
           const sortedArrivals = [...students].sort((a: any, b: any) => 
             new Date(b.timestamp || b.marked_at).getTime() - new Date(a.timestamp || a.marked_at).getTime()
           ).slice(0, 10);
@@ -99,29 +126,74 @@ export default function Dashboard() {
           setRecentArrivals([]);
         }
       } else {
-        // Student Logic - Fixing 403 by using student-specific endpoints
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = dayNames[new Date().getDay()];
         
-        // 1. Fetch Today's Schedule
-        const scheduleRes = await api.get(`/schedules?year=${user?.year || 3}&stream=${user?.stream || 'CSE'}`);
-        const todayClasses = (scheduleRes.data || []).filter((s: any) => s.day_of_week === currentDay);
-        setStudentClasses(todayClasses.sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || '')));
+        const [scheduleRes, attendanceRes, sessionRes] = await Promise.all([
+          api.get(`/schedules?year=${user?.year || 3}&stream=${user?.stream || 'CSE'}`),
+          api.get('/students/my-attendance'),
+          api.get('/sessions')
+        ]);
 
-        // 2. Fetch My Attendance History (Authorized for students)
-        const attendanceRes = await api.get('/students/my-attendance');
+        const finalYear = user?.year || 3;
+        const finalStream = user?.stream || 'CSE';
+
+        const todayRegular = (scheduleRes.data || []).filter((s: any) => s.day_of_week === currentDay).map((s: any) => ({ ...s, is_custom: false, is_cancelled: s.is_cancelled }));
+        
+        const todaySessions = (sessionRes.data || []).filter((s: any) => {
+          if (!s.start_time) return false;
+          const sessDate = new Date(s.start_time);
+          const isToday = sessDate.toDateString() === new Date().toDateString();
+          const isMyBatch = String(s.year) === String(finalYear) && String(s.stream).toLowerCase() === String(finalStream).toLowerCase();
+          return isToday && isMyBatch;
+        }).map((s: any) => {
+          const formatSTime = (isoStr: string) => {
+            if (!isoStr) return '00:00:00';
+            if (isoStr.includes('Z')) {
+              return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+            return isoStr.includes('T') ? isoStr.split('T')[1].split('.')[0] : isoStr;
+          };
+
+          return {
+            ...s,
+            id: s.id,
+            session_id: s.id,
+            isSessionRecord: true,
+            subject_id: s.subject_id,
+            subject_name: s.subject_name,
+            teacher_name: s.teacher_name,
+            classroom_name: s.classroom_name,
+            start_time: formatSTime(s.start_time),
+            end_time: formatSTime(s.end_time),
+            status: s.status,
+            is_custom: s.is_custom,
+            is_cancelled: s.status === 'cancelled'
+          };
+        });
+
+        const toMins = (t: string) => { 
+          const p = (t || '00:00').split(':'); 
+          return parseInt(p[0]) * 60 + parseInt(p[1]); 
+        };
+
+        const filteredRegular = todayRegular.filter((reg: any) =>
+          !todaySessions.some((sess: any) => 
+            (String(sess.schedule_id) === String(reg.id) || 
+            (String(sess.subject_id) === String(reg.subject_id) && Math.abs(toMins(sess.start_time) - toMins(reg.start_time)) < 15))
+            && sess.status !== 'cancelled'
+          )
+        );
+
+        const combinedSchedules = [...todaySessions, ...filteredRegular].sort((a: any, b: any) => toMins(a.start_time) - toMins(b.start_time));
+
+        setStudentClasses(combinedSchedules);
         setStudentAttendance(attendanceRes.data || []);
 
-        // 3. Fetch My Overall Stats (For future use or additional cards)
-        const statsRes = await api.get('/students/my-stats');
-        // We could use statsRes.data.present / total if we wanted overall rate
-
-        // 4. Check for any currently active session for their batch
-        const sessionRes = await api.get('/sessions');
         const activeBatchSession = (sessionRes.data || []).find((s: any) => 
           s.status === 'active' && 
-          String(s.year) === String(user?.year || 3) && 
-          String(s.stream).toLowerCase() === String(user?.stream || 'cse').toLowerCase()
+          String(s.year) === String(finalYear) && 
+          String(s.stream).toLowerCase() === String(finalStream).toLowerCase()
         );
         setActiveSession(activeBatchSession);
       }
@@ -133,15 +205,13 @@ export default function Dashboard() {
     }
   };
 
-  // Helper to determine status and priority for sorting
   const getStatusInfo = (item: any) => {
-    const isCustom = item.is_custom || String(item.id).startsWith('sess_'); // Handle custom session flag
+    const isCustom = item.is_custom || item.isCustom || String(item.id).startsWith('sess_');
     
-    // 1. Cancelled Status
-    if (item.is_cancelled) {
+    if (item.is_cancelled || item.status === 'cancelled') {
       return { 
         status: 'cancelled', 
-        batchLabel: 'Ended', 
+        batchLabel: isCustom ? 'Custom Cancelled' : 'Ended', 
         statusLabel: 'Cancelled', 
         color: '#ef4444', 
         priority: 6,
@@ -149,17 +219,14 @@ export default function Dashboard() {
       };
     }
     
-    const isLive = activeSession && activeSession.schedule_id === item.id;
+    const isLive = activeSession && (Number(activeSession.schedule_id) === Number(item.id) || Number(activeSession.id) === Number(item.session_id));
     const att = studentAttendance.find(a => {
-      // 1. Strict match by schedule_id
       if (a.schedule_id && Number(a.schedule_id) === Number(item.id)) return true;
-      
-      // 2. Fallback match for custom sessions or same-subject slots
+      if (item.session_id && a.session_id && Number(a.session_id) === Number(item.session_id)) return true;
       const isSameSubject = Number(a.subject_id) === Number(item.subject_id);
       const isToday = new Date(a.start_time).toDateString() === new Date().toDateString();
       
       if (isSameSubject && isToday) {
-        // Match by time proximity (45 minute window)
         const [h, m] = (item.start_time || '00:00').split(':');
         const classStart = new Date();
         classStart.setHours(parseInt(h), parseInt(m), 0);
@@ -170,7 +237,6 @@ export default function Dashboard() {
       return false;
     });
 
-    // 2. LIVE Status Logic
     if (isLive) {
       let subStatus = 'Not Detected Yet';
       let subColor = '#94a3b8';
@@ -183,7 +249,7 @@ export default function Dashboard() {
 
       return { 
         status: 'live', 
-        batchLabel: 'LIVE', 
+        batchLabel: isCustom ? 'CUSTOM LIVE' : 'LIVE', 
         statusLabel: subStatus, 
         color: subColor, 
         priority: 1, 
@@ -192,18 +258,16 @@ export default function Dashboard() {
       };
     }
 
-    // Check if past
-    const [h2, m2] = (item.raw_end || '23:59').split(':');
+    const [h2, m2] = (item.end_time || item.raw_end || '23:59').split(':');
     const endTime = new Date();
     endTime.setHours(parseInt(h2), parseInt(m2), 0);
-    const isPast = new Date() > endTime;
+    const isPast = new Date() > endTime || item.status === 'ended';
 
-    // 3. Ended Status Logic
     if (isPast || (att && (att.status === 'present' || att.status === 'absent'))) {
       const isPresent = att && ['present', 'detected'].includes(att.status);
       return { 
         status: 'ended', 
-        batchLabel: 'Ended', 
+        batchLabel: isCustom ? 'Custom Ended' : 'Ended', 
         statusLabel: isPresent ? 'Present' : 'Absent', 
         color: isPresent ? '#105934' : '#ef4444', 
         priority: 5,
@@ -211,11 +275,10 @@ export default function Dashboard() {
       };
     }
 
-    // 4. Upcoming Status Logic
     return { 
       status: 'upcoming', 
       batchLabel: 'Upcoming', 
-      statusLabel: 'Upcoming', 
+      statusLabel: isCustom ? 'Custom' : 'Regular', 
       color: isCustom ? '#b45309' : '#1d4ed8', 
       priority: 2,
       theme: isCustom ? 'yellow' : 'blue'
@@ -224,11 +287,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000); // Poll every 10s
+    const interval = setInterval(fetchDashboardData, 10000);
     return () => clearInterval(interval);
   }, [user, isTeacher]);
 
-  // Student Side Stats Calculation
   const presentCount = studentClasses.filter(cls => 
     studentAttendance.some(att => {
       const isMatch = (att.schedule_id && Number(att.schedule_id) === Number(cls.id)) ||
@@ -242,10 +304,11 @@ export default function Dashboard() {
   const attendanceRate = totalClassesToday > 0 ? Math.round((presentCount / totalClassesToday) * 100) : 0;
 
   let groupTotal = 0;
-  if (isTeacher && activeSession) {
+  const currentBatchSession = activeSession || upcomingSession;
+  if (isTeacher && currentBatchSession) {
     groupTotal = allStudents.filter(s => 
-      String(s.year).trim() === String(activeSession.year).trim() &&
-      String(s.stream).trim().toLowerCase() === String(activeSession.stream).toLowerCase()
+      String(s.year).trim() === String(currentBatchSession.year).trim() &&
+      String(s.stream).trim().toLowerCase() === String(currentBatchSession.stream).toLowerCase()
     ).length;
   }
 
@@ -254,12 +317,25 @@ export default function Dashboard() {
     fetchDashboardData();
   };
 
+  // Status colors & labels for Active Session
+  const isCustomActive = activeSession?.is_custom || activeSession?.session_type === 'custom';
+  const activeBgColor = isCustomActive ? '#ca8a04' : '#105934';
+  const activeLabel = isCustomActive ? 'CUSTOM LIVE' : 'REGULAR LIVE';
+
+  // Status colors & labels for Upcoming Session
+  const isCustomUpcoming = upcomingSession?.is_custom || upcomingSession?.session_type === 'custom';
+  const upcomingBgColor = isCustomUpcoming ? '#b45309' : '#1e3a8a';
+  const upcomingDotColor = isCustomUpcoming ? '#fef08a' : '#60a5fa';
+  const upcomingPillBg = isCustomUpcoming ? 'rgba(254, 240, 138, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+  const upcomingPillBorder = isCustomUpcoming ? 'rgba(254, 240, 138, 0.3)' : 'rgba(59, 130, 246, 0.3)';
+  const upcomingLabel = isCustomUpcoming ? 'CUSTOM UPCOMING' : 'REGULAR UPCOMING';
+
   return (
     <SwipeWrapper>
       <View style={styles.mainContainer}>
         <StatusBar barStyle="dark-content" />
         
-        {/* Unified Navbar - Always White */}
+        {/* Unified Navbar */}
         <View style={styles.navbarStandalone}>
           <View style={styles.navbarLeft}>
             <Image source={LOGO_ASSET} style={styles.logo} />
@@ -330,15 +406,27 @@ export default function Dashboard() {
               </View>
 
               <View style={styles.heroCardPositioner}>
-                <View style={styles.heroCard}>
+                <View style={[
+                  styles.heroCard,
+                  activeSession 
+                    ? { backgroundColor: activeBgColor } 
+                    : upcomingSession 
+                    ? { backgroundColor: upcomingBgColor, borderColor: 'rgba(255, 255, 255, 0.15)' }
+                    : { backgroundColor: '#105934' }
+                ]}>
                   {activeSession ? (
                     <>
+                      {isCustomActive && (
+                        <View style={styles.customBadgeTop}>
+                          <Text style={styles.customBadgeTextTop}>★ CUSTOM SESSION</Text>
+                        </View>
+                      )}
                       <View style={styles.cardTopRow}>
                         <Text style={styles.heroSubjectCard} numberOfLines={1}>{activeSession.subject_name}</Text>
                         <View style={styles.badgeRow}>
-                          <View style={styles.liveIndicatorCard}>
-                            <View style={styles.liveDot} />
-                            <Text style={styles.liveTextCard}>LIVE</Text>
+                          <View style={[styles.liveIndicatorCard, isCustomActive && { backgroundColor: 'rgba(254, 240, 138, 0.25)', borderColor: 'rgba(254, 240, 138, 0.4)' }]}>
+                            <View style={[styles.liveDot, isCustomActive && { backgroundColor: '#fef08a' }]} />
+                            <Text style={styles.liveTextCard}>{activeLabel}</Text>
                           </View>
                         </View>
                       </View>
@@ -358,6 +446,45 @@ export default function Dashboard() {
                         </View>
                       </View>
                     </>
+                  ) : upcomingSession ? (
+                    <>
+                      {isCustomUpcoming && (
+                        <View style={styles.customBadgeTop}>
+                          <Text style={styles.customBadgeTextTop}>★ CUSTOM SESSION</Text>
+                        </View>
+                      )}
+                      <View style={styles.cardTopRow}>
+                        <View style={{ flex: 1, marginRight: 10 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '900', color: isCustomUpcoming ? '#fef08a' : '#fbbf24', letterSpacing: 0.5, marginBottom: 4 }}>
+                            YOU HAVE NO CLASS RIGHT NOW
+                          </Text>
+                          <Text style={styles.heroSubjectCard} numberOfLines={1}>
+                            Next: {upcomingSession.subject_name}
+                          </Text>
+                        </View>
+                        <View style={styles.badgeRow}>
+                          <View style={[styles.liveIndicatorCard, { backgroundColor: upcomingPillBg, borderColor: upcomingPillBorder }]}>
+                            <View style={[styles.liveDot, { backgroundColor: upcomingDotColor }]} />
+                            <Text style={styles.liveTextCard}>{upcomingLabel}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.heroMetaRowCard}>
+                        <Text style={styles.heroMetaCard}>
+                          {upcomingSession.classroom_name} • {getTimeRemaining(upcomingSession.start_time)}
+                        </Text>
+                      </View>
+
+                      <View style={styles.heroFooterCard}>
+                        <View style={styles.heroTagCard}><Text style={styles.heroTagTextCard}>Year {upcomingSession.year}</Text></View>
+                        <View style={styles.heroTagCard}><Text style={styles.heroTagTextCard}>{upcomingSession.stream}</Text></View>
+                        <View style={styles.heroTimeCard}>
+                          <Clock size={15} color="#fff" strokeWidth={2.5} />
+                          <Text style={styles.heroTimeTextCard}>{formatTime(upcomingSession.start_time)} – {formatTime(upcomingSession.end_time)}</Text>
+                        </View>
+                      </View>
+                    </>
                   ) : (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }}>
                       <CheckCircle size={40} color="#fff" style={{ marginBottom: 10, opacity: 0.8 }} />
@@ -369,6 +496,7 @@ export default function Dashboard() {
               </View>
             </View>
           )}
+
           {/* Stats Section */}
           <View style={styles.statsContainer}>
             <View style={styles.statsRow}>
@@ -376,10 +504,10 @@ export default function Dashboard() {
                 <>
                   <View style={[styles.statCard, { flex: 1.5 }]}>
                     <Text style={styles.statLabel}>STUDENTS IN CLASS</Text>
-                    <Text style={styles.statValue}>{activeSession ? groupTotal : 0}</Text>
+                    <Text style={styles.statValue}>{currentBatchSession ? groupTotal : 0}</Text>
                     <View style={styles.statFooter}>
                       <Users size={12} color="#64748b" />
-                      <Text style={styles.statFooterText}>{activeSession ? `Year ${activeSession.year} • ${activeSession.stream}` : 'No Session'}</Text>
+                      <Text style={styles.statFooterText}>{currentBatchSession ? `Year ${currentBatchSession.year} • ${currentBatchSession.stream}` : 'No Session'}</Text>
                     </View>
                   </View>
                   <View style={[styles.statCard, { flex: 1 }]}>
@@ -399,7 +527,6 @@ export default function Dashboard() {
                     </View>
                   </View>
                   <View style={[styles.statCard, { flex: 1.3, backgroundColor: '#f8fafc', overflow: 'hidden' }]}>
-                    {/* Background Progress Fill */}
                     <View style={[styles.cardProgressFill, { width: `${attendanceRate}%` }]}>
                       <LinearGradient
                         colors={['rgba(16, 89, 52, 0.12)', 'rgba(34, 197, 94, 0.08)']}
@@ -447,7 +574,6 @@ export default function Dashboard() {
               const isArrival = isTeacher;
               const ringColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               
-              // Use helper for student status
               const sInfo = !isTeacher ? getStatusInfo(item) : { 
                 status: '', 
                 batchLabel: '', 
@@ -463,7 +589,6 @@ export default function Dashboard() {
               const isClassLive = sInfo.isLive;
               const theme = sInfo.theme;
 
-              // Theme based colors
               const themeColors = {
                 emerald: { border: '#105934', bg: '#f0fdf4', text: '#105934' },
                 blue: { border: '#1d4ed8', bg: '#eff6ff', text: '#1d4ed8' },
@@ -480,7 +605,7 @@ export default function Dashboard() {
                     styles.activityCard, 
                     !isTeacher && isClassLive && { borderColor: activeTheme.border, borderWidth: 1.5, backgroundColor: activeTheme.bg },
                     !isTeacher && !isClassLive && theme === 'blue' && { borderColor: activeTheme.border + '30', borderWidth: 1, backgroundColor: '#fff' },
-                    !isTeacher && !isClassLive && theme === 'yellow' && { borderColor: activeTheme.border + '30', borderWidth: 1, backgroundColor: '#fff' },
+                    !isTeacher && !isClassLive && theme === 'yellow' && { borderColor: '#facc15', borderWidth: 1.5, backgroundColor: '#fefce8' },
                     !isTeacher && theme === 'ash' && { opacity: 0.8, backgroundColor: '#f9fafb' },
                     !isTeacher && theme === 'red' && { backgroundColor: '#fff5f5', borderColor: '#feb2b2', borderWidth: 1 }
                   ]}
@@ -562,9 +687,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   heroWrapper: {
-    height: 205,
+    height: 250,
     backgroundColor: '#fff',
-    marginBottom: 0,
+    marginBottom: 15,
   },
   headerContainer: {
     width: width * 1.8,
@@ -594,12 +719,6 @@ const styles = StyleSheet.create({
     color: '#105934',
     letterSpacing: -0.5,
   },
-  appNameLight: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -0.5,
-  },
   navbarRight: {
     alignItems: 'flex-end',
   },
@@ -612,14 +731,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#f1f5f9',
-  },
-  notifBtnLight: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   notifDot: {
     position: 'absolute',
@@ -656,6 +767,22 @@ const styles = StyleSheet.create({
     elevation: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+  },
+  customBadgeTop: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(254, 240, 138, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(254, 240, 138, 0.4)',
+  },
+  customBadgeTextTop: {
+    color: '#fef08a',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -695,26 +822,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  aiHealthBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  bgActive: { backgroundColor: 'rgba(74, 222, 128, 0.3)' },
-  bgLagging: { backgroundColor: 'rgba(251, 146, 60, 0.4)' },
-  bgOffline: { backgroundColor: 'rgba(248, 113, 113, 0.4)' },
-  bgConnecting: { backgroundColor: 'rgba(96, 165, 250, 0.4)' },
-  aiHealthText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
   liveDot: {
     width: 6,
@@ -818,83 +925,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     letterSpacing: 0.5,
   },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  progressBarBg: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#105934',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#105934',
-    width: 40,
-    textAlign: 'right',
-  },
-  liveClassCard: {
-    borderColor: '#105934',
-    backgroundColor: '#f0fdf4',
-    borderWidth: 2,
-  },
-  subjectRowHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  liveTagMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#105934',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  liveTagTextMini: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-  },
-  statusBadgeFull: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    minWidth: 85,
-    alignItems: 'center',
-  },
-  statusTextFull: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-  },
-  cancelledText: {
-    textDecorationLine: 'line-through',
-    color: '#94a3b8',
-  },
   activityCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
@@ -933,12 +963,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 1,
   },
-  activityEmail: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '500',
-    marginTop: 1,
-  },
   activityTime: {
     fontSize: 11,
     color: '#105934',
@@ -966,54 +990,43 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.2,
   },
-  statusBadge: {
+  subjectRowHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  liveTagMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#105934',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  liveTagTextMini: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  statusBadgeFull: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
+    minWidth: 85,
+    alignItems: 'center',
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  cardProgressFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(16, 89, 52, 0.05)', // Fallback
-  },
-  fullProgressWrapper: {
-    marginTop: 10,
-    gap: 8,
-  },
-  fullProgressLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  fullProgressValue: {
-    fontSize: 28,
+  statusTextFull: {
+    fontSize: 11,
     fontWeight: '900',
-    color: '#105934',
-  },
-  fullProgressSub: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#105934',
-    opacity: 0.6,
-  },
-  fullProgressBarOuter: {
-    height: 10,
-    backgroundColor: 'rgba(16, 89, 52, 0.1)',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  fullProgressBarInner: {
-    height: '100%',
-    borderRadius: 5,
+    letterSpacing: 0.2,
   },
   emptyContainer: {
     padding: 40,

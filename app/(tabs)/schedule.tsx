@@ -1,12 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, FlatList, Platform, Modal, ActivityIndicator } from 'react-native';
-import { Clock, MapPin, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, User, Plus } from 'lucide-react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Platform,
+  Modal,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import {
+  Clock,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  User,
+  Plus,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react-native';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import api from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
+import { AttendanceModal } from '../../src/components/AttendanceModal';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const FULL_DAYS = { 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday' };
+const FULL_DAYS: { [key: string]: string } = {
+  Mon: 'Monday',
+  Tue: 'Tuesday',
+  Wed: 'Wednesday',
+  Thu: 'Thursday',
+  Fri: 'Friday',
+  Sat: 'Saturday',
+  Sun: 'Sunday',
+};
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 const STREAMS = ['CSE', 'CSBS', 'ECE', 'ME'];
 
@@ -15,7 +46,7 @@ const getWeekStart = (offset = 0) => {
   const day = now.getDay();
   const diff = (day === 0 ? -6 : 1) - day;
   const monday = new Date(now);
-  monday.setDate(now.getDate() + diff + (offset * 7));
+  monday.setDate(now.getDate() + diff + offset * 7);
   monday.setHours(0, 0, 0, 0);
   return monday;
 };
@@ -32,14 +63,6 @@ const getCurrentDayName = () => {
   return dayNames[new Date().getDay()];
 };
 
-const normalizeTime = (t: string) => {
-  if (!t) return '';
-  const match = t.match(/(\d{1,2}:\d{2})/);
-  if (!match) return t;
-  let [h, m] = match[1].split(':');
-  return `${h.padStart(2, '0')}:${m}`;
-};
-
 export default function ScheduleScreen() {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher';
@@ -47,16 +70,33 @@ export default function ScheduleScreen() {
   const canManage = isTeacher || user?.role === 'admin';
 
   const [selectedDay, setSelectedDay] = useState(getCurrentDayName());
-  const [selectedYear, setSelectedYear] = useState(user?.year ? `${user.year}${user.year === 1 ? 'st' : user.year === 2 ? 'nd' : user.year === 3 ? 'rd' : 'th'} Year` : '3rd Year');
+  const [selectedYear, setSelectedYear] = useState(
+    user?.year
+      ? `${user.year}${
+          user.year === 1 ? 'st' : user.year === 2 ? 'nd' : user.year === 3 ? 'rd' : 'th'
+        } Year`
+      : '2nd Year'
+  );
   const [selectedStream, setSelectedStream] = useState(user?.stream || 'CSE');
   const [showYearModal, setShowYearModal] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
-  
+
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [customSessions, setCustomSessions] = useState<any[]>([]);
+  const [allSessions, setAllSessions] = useState<any[]>([]);
+  const [studentAttendance, setStudentAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+
+  const [attModal, setAttModal] = useState({
+    visible: false,
+    loading: false,
+    session: null as any,
+    records: [] as any[],
+    title: '',
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -66,26 +106,40 @@ export default function ScheduleScreen() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const yearVal = selectedYear.split('')[0]; // "3" from "3rd Year"
+      const yearVal = selectedYear.split('')[0];
       const weekStartParam = formatISODate(getWeekStart(weekOffset));
-      
-      const [slotRes, schedRes] = await Promise.all([
+
+      const [slotRes, schedRes, sessRes, attRes] = await Promise.all([
         api.get('/time_slots'),
-        api.get(`/schedules?year=${yearVal}&stream=${selectedStream}&week_start=${weekStartParam}`)
+        api.get(`/schedules?year=${yearVal}&stream=${selectedStream}&week_start=${weekStartParam}`),
+        api.get(`/sessions?week_start=${weekStartParam}`), // Fetch all sessions for this week exactly like desktop
+        isStudent ? api.get('/students/my-attendance') : Promise.resolve({ data: [] }),
       ]);
-      
-      const sortedSlots = (slotRes.data || []).sort((a: any, b: any) => (a.raw_start || '').localeCompare(b.raw_start || ''));
+
+      const sortedSlots = (slotRes.data || []).sort((a: any, b: any) =>
+        (a.raw_start || '').localeCompare(b.raw_start || '')
+      );
       const combinedSchedules = (schedRes.data || []).sort((a: any, b: any) => {
-        // Prioritize snapshots/history so they are picked up by .find() first
         if (a.is_snapshot_history && !b.is_snapshot_history) return -1;
         if (!a.is_snapshot_history && b.is_snapshot_history) return 1;
         return 0;
       });
-      
+
+      const allSess = sessRes.data || [];
+      const filteredCustom = allSess.filter((s: any) => {
+        if (!s.is_custom) return false;
+        if (String(s.year) !== String(yearVal)) return false;
+        if (String(s.stream).toLowerCase() !== String(selectedStream).toLowerCase()) return false;
+        return true;
+      });
+
       setTimeSlots(sortedSlots);
       setSchedules(combinedSchedules);
+      setCustomSessions(filteredCustom);
+      setAllSessions(allSess);
+      setStudentAttendance(attRes.data || []);
     } catch (err) {
-      console.warn('Failed to fetch timetable:', err);
+      console.warn('Failed to fetch timetable data:', err);
     } finally {
       setLoading(false);
     }
@@ -98,22 +152,82 @@ export default function ScheduleScreen() {
   const weekStart = getWeekStart(weekOffset);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
-  const weekText = `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const weekText = `${weekStart.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })} - ${weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const isCurrentTimeSlot = (slot: any) => {
     if (weekOffset !== 0 || selectedDay !== getCurrentDayName()) return false;
     if (!slot.raw_start || !slot.raw_end) return false;
-    
+
     const [h1, m1] = slot.raw_start.split(':');
     const [h2, m2] = slot.raw_end.split(':');
-    
+
     const start = new Date(now);
     start.setHours(parseInt(h1, 10), parseInt(m1, 10), 0, 0);
-    
+
     const end = new Date(now);
     end.setHours(parseInt(h2, 10), parseInt(m2, 10), 0, 0);
-    
+
     return now >= start && now <= end;
+  };
+
+  const isPastOrEnded = (slot: any, dayName: string, matchingSession: any) => {
+    if (matchingSession && (matchingSession.status === 'ended' || matchingSession.status === 'completed' || matchingSession.status === 'cancelled')) {
+      return true;
+    }
+    if (weekOffset < 0) return true;
+    if (weekOffset > 0) return false;
+
+    const academicDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const jsDay = new Date().getDay();
+    const todayAcademicIdx = (jsDay + 6) % 7; // Convert JS (0=Sun, 1=Mon) to Academic (0=Mon, 6=Sun)
+    const targetAcademicIdx = academicDays.indexOf(dayName);
+
+    if (targetAcademicIdx < todayAcademicIdx) return true;
+    if (targetAcademicIdx > todayAcademicIdx) return false;
+
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const [eh, em] = (slot.raw_end || slot.end_time || '00:00').split(':');
+    return nowMin >= parseInt(eh, 10) * 60 + parseInt(em, 10);
+  };
+
+  const openCardAttendance = async (item: any, matchingSession: any, dayName: string) => {
+    let targetSessionId = null;
+    if (item.is_custom || item.session_id) {
+      targetSessionId = item.session_id || item.id;
+    } else if (matchingSession) {
+      targetSessionId = matchingSession.id;
+    }
+
+    if (!targetSessionId) {
+      Alert.alert('No Session Record', 'No session record exists in the database for this class.');
+      return;
+    }
+
+    setAttModal({
+      visible: true,
+      loading: true,
+      session: item,
+      records: [],
+      title: `${item.subject_name || 'Class'} (${dayName})`,
+    });
+
+    try {
+      const r = await api.get(`/attendance/session/${targetSessionId}?include_absent=true`);
+      setAttModal((prev) => ({
+        ...prev,
+        loading: false,
+        records: r.data || [],
+      }));
+    } catch (err) {
+      setAttModal((prev) => ({
+        ...prev,
+        loading: false,
+        records: [],
+      }));
+    }
   };
 
   const SelectionModal = ({ visible, options, onSelect, onClose, title }: any) => (
@@ -122,10 +236,13 @@ export default function ScheduleScreen() {
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>{title}</Text>
           {options.map((opt: any) => (
-            <TouchableOpacity 
-              key={opt} 
-              style={styles.modalOption} 
-              onPress={() => { onSelect(opt); onClose(); }}
+            <TouchableOpacity
+              key={opt}
+              style={styles.modalOption}
+              onPress={() => {
+                onSelect(opt);
+                onClose();
+              }}
             >
               <Text style={styles.modalOptionText}>{opt}</Text>
             </TouchableOpacity>
@@ -154,23 +271,23 @@ export default function ScheduleScreen() {
               </View>
             )}
           </View>
-          
+
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 15 }}>
-            <View style={[styles.weekSelector, { flex: 1, marginTop: 0 }]}>
-              <TouchableOpacity style={styles.navBtn} onPress={() => setWeekOffset(prev => prev - 1)}>
+            <View style={[styles.weekSelector, { flex: 1 }]}>
+              <TouchableOpacity style={styles.navBtn} onPress={() => setWeekOffset((prev) => prev - 1)}>
                 <ChevronLeft size={20} color="#105934" />
               </TouchableOpacity>
               <View style={styles.dateInfo}>
                 <CalendarIcon size={14} color="#105934" style={{ marginRight: 6 }} />
                 <Text style={styles.weekText}>{weekText}</Text>
               </View>
-              <TouchableOpacity style={styles.navBtn} onPress={() => setWeekOffset(prev => prev + 1)}>
+              <TouchableOpacity style={styles.navBtn} onPress={() => setWeekOffset((prev) => prev + 1)}>
                 <ChevronRight size={20} color="#105934" />
               </TouchableOpacity>
             </View>
 
             {weekOffset !== 0 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.todayBtn}
                 onPress={() => {
                   setWeekOffset(0);
@@ -186,8 +303,8 @@ export default function ScheduleScreen() {
         <View style={styles.daysRowWrapper}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysRow}>
             {DAYS.map((day) => (
-              <TouchableOpacity 
-                key={day} 
+              <TouchableOpacity
+                key={day}
                 style={[styles.dayButton, selectedDay === day && styles.dayButtonActive]}
                 onPress={() => setSelectedDay(day)}
               >
@@ -210,16 +327,32 @@ export default function ScheduleScreen() {
             showsVerticalScrollIndicator={false}
             renderItem={({ item: slot }) => {
               const fullDayName = FULL_DAYS[selectedDay as keyof typeof FULL_DAYS];
-              const matches = schedules.filter(d => {
-                const isSameDay = d.day_of_week === fullDayName;
-                const slotStart = normalizeTime(slot.raw_start || slot.start_time);
-                const schedStart = normalizeTime(d.start_time);
-                return isSameDay && slotStart === schedStart;
+              const slotPrefix = String(slot.raw_start || slot.start_time || '').substring(0, 5);
+
+              const matches = schedules.filter((d) => {
+                const isSameDay = String(d.day_of_week || '').trim().toLowerCase() === String(fullDayName).trim().toLowerCase();
+                const schedPrefix = String(d.start_time || '').substring(0, 5);
+                return isSameDay && slotPrefix === schedPrefix;
               });
-              
+
+              const targetDateObj = new Date(weekStart);
+              const dayOffset = (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(selectedDay) + 7) % 7;
+              targetDateObj.setDate(targetDateObj.getDate() + dayOffset);
+              const targetDateStr = formatISODate(targetDateObj);
+
+              const customMatches = customSessions.filter((c) => {
+                if (!c.start_time) return false;
+                const d = new Date(c.start_time);
+                if (isNaN(d.getTime())) return false;
+                const cDate = formatISODate(d);
+                const cPrefix = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+                return cDate === targetDateStr && cPrefix === slotPrefix;
+              });
+
+              const allMatches = [...matches, ...customMatches];
               const isCurrent = isCurrentTimeSlot(slot);
               const [startFull, startAmpm] = (slot.start_time || '').split(' ');
-              
+
               return (
                 <View style={[styles.scheduleItem, isCurrent && styles.currentScheduleItem]}>
                   {isCurrent && <View style={styles.currentIndicator} />}
@@ -229,53 +362,132 @@ export default function ScheduleScreen() {
                     <View style={[styles.timeSeparator, isCurrent && { backgroundColor: '#10593450' }]} />
                     <Text style={styles.timeEnd}>{slot.end_time}</Text>
                   </View>
-                  
-                  <View style={styles.cardContainer}>
-                    {matches.length > 0 ? matches.map((item, mIdx) => {
-                      let statusColor = '#cbd5e1';
-                      let statusLabel = 'FREE';
-                      
-                      if (item.is_cancelled) {
-                        statusColor = '#ef4444';
-                        statusLabel = 'CANCELLED';
-                      } else if (item.session_type === 'custom' || item.is_custom) {
-                        statusColor = '#eab308';
-                        statusLabel = 'CUSTOM';
-                      } else {
-                        statusColor = '#105934';
-                        statusLabel = 'REGULAR';
-                      }
 
-                      return (
-                        <TouchableOpacity 
-                          key={item.id + '_' + mIdx}
-                          style={[styles.card, { borderColor: statusColor + '20', marginBottom: mIdx < matches.length - 1 ? 8 : 0 }]}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[styles.typeBar, { backgroundColor: statusColor }]} />
-                          <View style={styles.cardHeader}>
-                            <View style={styles.subjectRow}>
-                              <Text style={[styles.subjectText, item.is_cancelled && styles.cancelledText]}>
-                                {item.subject_name}
-                              </Text>
-                            </View>
-                            <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
-                              <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
-                            </View>
-                            <View style={styles.cardFooter}>
-                              <View style={styles.footerItem}>
-                                <MapPin size={12} color="#64748b" />
-                                <Text style={styles.footerText}>{item.classroom_name}</Text>
+                  <View style={styles.cardContainer}>
+                    {allMatches.length > 0 ? (
+                      allMatches.map((item, mIdx) => {
+                        let statusColor = '#cbd5e1';
+                        let statusLabel = 'FREE';
+
+                        const isCancelled = item.is_cancelled || item.status === 'cancelled';
+
+                        if (isCancelled) {
+                          statusColor = '#ef4444';
+                          statusLabel = 'CANCELLED';
+                        } else if (item.session_type === 'custom' || item.is_custom) {
+                          statusColor = '#eab308';
+                          statusLabel = 'CUSTOM';
+                        } else {
+                          statusColor = '#105934';
+                          statusLabel = 'REGULAR';
+                        }
+
+                        // Matching historical database session for regular routine schedules
+                        const matchingSession = item.is_custom
+                          ? item
+                          : allSessions.find((sess) => {
+                              if (sess.is_custom) return false;
+                              if (String(sess.schedule_id) === String(item.id)) return true;
+                              if (String(sess.subject_id) !== String(item.subject_id)) return false;
+                              if (!sess.start_time) return false;
+                              const sDate = new Date(sess.start_time);
+                              if (formatISODate(sDate) !== targetDateStr) return false;
+                              const sPrefix =
+                                String(sDate.getHours()).padStart(2, '0') + ':' + String(sDate.getMinutes()).padStart(2, '0');
+                              return sPrefix === slotPrefix;
+                            });
+
+                        const isCompletedOrPast = isPastOrEnded(slot, selectedDay, matchingSession);
+                        const canCheck = canManage && isCompletedOrPast && !isStudent && matchingSession;
+
+                        let studentAttStatus: string | null = null;
+                        if (isStudent && isCompletedOrPast && !isCancelled) {
+                          const isPres = studentAttendance.some(att => {
+                            const targetSessId = item.is_custom ? item.id : (matchingSession ? matchingSession.id : null);
+                            if (targetSessId && (String(att.session_id) === String(targetSessId) || String(att.schedule_id) === String(item.id))) {
+                              return att.status === 'present';
+                            }
+                            if (!att.start_time && !att.marked_at) return false;
+                            const attDate = new Date(att.start_time || att.marked_at);
+                            if (formatISODate(attDate) !== targetDateStr) return false;
+                            if (String(att.subject_id) !== String(item.subject_id)) return false;
+                            if (att.status !== 'present') return false;
+                            const [slotH, slotM] = slotPrefix.split(':');
+                            const slotMins = parseInt(slotH, 10) * 60 + parseInt(slotM, 10);
+                            const attMins = attDate.getHours() * 60 + attDate.getMinutes();
+                            return Math.abs(slotMins - attMins) < 45;
+                          });
+                          studentAttStatus = isPres ? 'present' : 'absent';
+                        }
+
+                        return (
+                          <View
+                            key={item.id + '_' + mIdx}
+                            style={[
+                              styles.card,
+                              {
+                                borderColor: statusColor + '20',
+                                marginBottom: mIdx < allMatches.length - 1 ? 8 : 0,
+                              },
+                              isCancelled && styles.cancelledCardBg,
+                            ]}
+                          >
+                            <View style={[styles.typeBar, { backgroundColor: statusColor }]} />
+                            <View style={styles.cardHeader}>
+                              <View style={styles.subjectRow}>
+                                <Text style={[styles.subjectText, isCancelled && styles.cancelledText]}>
+                                  {item.subject_name}
+                                </Text>
+                                {studentAttStatus ? (
+                                  <View style={[styles.attendanceChip, studentAttStatus === 'present' ? styles.chipPresent : styles.chipAbsent]}>
+                                    {studentAttStatus === 'present' ? (
+                                      <CheckCircle2 size={12} color="#105934" />
+                                    ) : (
+                                      <XCircle size={12} color="#ef4444" />
+                                    )}
+                                    <Text style={[styles.chipText, { color: studentAttStatus === 'present' ? '#105934' : '#ef4444' }]}>
+                                      {studentAttStatus === 'present' ? 'Attended' : 'Absent'}
+                                    </Text>
+                                  </View>
+                                ) : null}
                               </View>
-                              <View style={styles.footerItem}>
-                                <User size={12} color="#64748b" />
-                                <Text style={styles.footerText}>{item.teacher_name}</Text>
+
+                              <View style={styles.badgesContainer}>
+                                <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
+                                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
+                                </View>
                               </View>
+
+                              <View style={styles.cardFooter}>
+                                <View style={styles.footerItem}>
+                                  <MapPin size={12} color="#64748b" />
+                                  <Text style={styles.footerText}>{item.classroom_name || item.room || 'Room'}</Text>
+                                </View>
+                                <View style={styles.footerItem}>
+                                  <User size={12} color="#64748b" />
+                                  <Text style={styles.footerText}>{item.teacher_name}</Text>
+                                </View>
+                              </View>
+
+                              {/* Prominent Check Attendance Button */}
+                              {canCheck ? (
+                                <TouchableOpacity
+                                  style={styles.checkAttBtn}
+                                  activeOpacity={0.7}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    openCardAttendance(item, matchingSession, fullDayName);
+                                  }}
+                                >
+                                  <CheckCircle2 size={13} color="#105934" style={{ marginRight: 6 }} />
+                                  <Text style={styles.checkAttBtnText}>Check Attendance</Text>
+                                </TouchableOpacity>
+                              ) : null}
                             </View>
                           </View>
-                        </TouchableOpacity>
-                      );
-                    }) : (
+                        );
+                      })
+                    ) : (
                       <View style={[styles.card, styles.cardEmpty]}>
                         <View style={[styles.typeBar, { backgroundColor: '#cbd5e1' }]} />
                         <View style={styles.emptyContent}>
@@ -291,19 +503,28 @@ export default function ScheduleScreen() {
           />
         )}
 
-        <SelectionModal 
-          visible={showYearModal} 
-          options={YEARS} 
-          onSelect={setSelectedYear} 
+        <SelectionModal
+          visible={showYearModal}
+          options={YEARS}
+          onSelect={setSelectedYear}
           onClose={() => setShowYearModal(false)}
           title="Select Academic Year"
         />
-        <SelectionModal 
-          visible={showStreamModal} 
-          options={STREAMS} 
-          onSelect={setSelectedStream} 
+        <SelectionModal
+          visible={showStreamModal}
+          options={STREAMS}
+          onSelect={setSelectedStream}
           onClose={() => setShowStreamModal(false)}
           title="Select Department"
+        />
+
+        <AttendanceModal
+          visible={attModal.visible}
+          onClose={() => setAttModal((prev) => ({ ...prev, visible: false }))}
+          session={attModal.session}
+          loading={attModal.loading}
+          records={attModal.records}
+          title={attModal.title}
         />
       </View>
     </SwipeWrapper>
@@ -368,7 +589,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 15,
     backgroundColor: '#f8fafc',
     borderRadius: 16,
     padding: 10,
@@ -495,6 +715,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 1,
   },
+  cancelledCardBg: {
+    backgroundColor: '#fafafa',
+    opacity: 0.85,
+  },
   cardEmpty: {
     backgroundColor: '#f8fafc',
     borderStyle: 'dashed',
@@ -527,12 +751,17 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: '#94a3b8',
   },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    marginBottom: 12,
   },
   statusBadgeText: {
     fontSize: 9,
@@ -552,6 +781,45 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
+  },
+  checkAttBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    marginTop: 14,
+    alignSelf: 'flex-start',
+  },
+  checkAttBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#105934',
+  },
+  attendanceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    marginLeft: 10,
+  },
+  chipPresent: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#dcfce7',
+  },
+  chipAbsent: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fee2e2',
+  },
+  chipText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   emptyContent: {
     flex: 1,
