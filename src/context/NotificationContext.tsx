@@ -5,8 +5,19 @@ import { io, Socket } from 'socket.io-client';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Bell, CheckCircle, AlertCircle, Info, X, Clock } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const { width } = Dimensions.get('window');
 const BASE_SOCKET_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://merge-backend.onrender.com/api').replace('/api', '');
@@ -94,6 +105,17 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     fetchNotifications();
 
+    Notifications.requestPermissionsAsync().then(({ status }) => {
+      console.log('[Mobile Notifications] Permission status:', status);
+    });
+
+    const notifSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const url = response.notification.request.content.data?.redirect_url;
+      if (url) {
+        router.push(url as any);
+      }
+    });
+
     AsyncStorage.getItem('userToken').then(token => {
       const newSocket = io(BASE_SOCKET_URL, {
         reconnection: true,
@@ -142,6 +164,16 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           }
 
           showToast(notif);
+
+          // Schedule local OS notification
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: notif.title || 'Merge Notification',
+              body: notif.message,
+              data: { redirect_url: notif.redirect_url },
+            },
+            trigger: null, // Send immediately
+          }).catch(err => console.warn('[Mobile OS Notification] Schedule error:', err));
         }
       };
 
@@ -166,6 +198,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     return () => {
       if (socket) socket.close();
+      notifSubscription.remove();
     };
   }, [user, fetchNotifications]);
 
