@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       if (role === 'admin') endpoint = '/auth/admin/login';
       if (role === 'student') endpoint = '/auth/student/login';
 
-      const response = await apiClient.post(endpoint, { email, password });
+      const response = await apiClient.post(endpoint, { email, password, role });
       const { token, user: userData } = response.data;
 
       const fullUserData = { ...userData, token };
