@@ -23,7 +23,8 @@
         "color": "#105934"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anish_ne.Merge"
     },
     "web": {
       "output": "static",
@@ -47,6 +48,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d28e3ba3-59f6-46bb-9184-606256cec543"
+      }
     }
   }
 }
