@@ -19,7 +19,6 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "notification": {
-        "icon": "./assets/images/android-icon-monochrome.png",
         "color": "#105934"
       },
       "edgeToEdgeEnabled": true,
