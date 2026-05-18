@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Animated, StyleSheet, View, Text, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import { Animated, StyleSheet, View, Text, TouchableOpacity, Image, Dimensions, Platform, LogBox } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io, Socket } from 'socket.io-client';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,11 @@ import { Bell, CheckCircle, AlertCircle, Info, X, Clock } from 'lucide-react-nat
 import * as Notifications from 'expo-notifications';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
+
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'expo-notifications: Push notifications',
+]);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
