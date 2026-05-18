@@ -307,11 +307,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>institutional email</Text>
                   <View style={styles.inputWrapper}>
-                    <User size={18} color="#999" style={styles.inputIcon} />
+                    <User size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="name@college.edu"
-                      placeholderTextColor="#ccc"
+                      placeholderTextColor="#9ca3af"
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
@@ -323,17 +323,17 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>password</Text>
                   <View style={styles.inputWrapper}>
-                    <Lock size={18} color="#999" style={styles.inputIcon} />
+                    <Lock size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="••••••••"
-                      placeholderTextColor="#ccc"
+                      placeholderTextColor="#9ca3af"
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
                     />
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff size={18} color="#999" /> : <Eye size={18} color="#999" />}
+                      {showPassword ? <EyeOff size={18} color="#6b7280" /> : <Eye size={18} color="#6b7280" />}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -365,10 +365,11 @@ export default function LoginScreen() {
                 <View style={[styles.inputGroup, { zIndex: 100 }]}>
                   <Text style={styles.label}>select institution</Text>
                   <View style={styles.inputWrapper}>
-                    <Search size={18} color="#999" style={styles.inputIcon} />
+                    <Search size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="Type college name..."
+                      placeholderTextColor="#9ca3af"
                       value={searchQuery}
                       onChangeText={(t) => { setSearchQuery(t); setShowOrgList(true); }}
                       onFocus={() => setShowOrgList(true)}
@@ -393,10 +394,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>registered email</Text>
                   <View style={styles.inputWrapper}>
-                    <Mail size={18} color="#999" style={styles.inputIcon} />
+                    <Mail size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="name@college.edu"
+                      placeholderTextColor="#9ca3af"
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -409,7 +411,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.backButton} onPress={() => setView('login')}>
-                  <ArrowLeft size={16} color="#666" />
+                  <ArrowLeft size={16} color="#4b5563" />
                   <Text style={styles.backButtonText}>Back to Login</Text>
                 </TouchableOpacity>
               </View>
@@ -429,6 +431,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.otpInput}
                     placeholder="000000"
+                    placeholderTextColor="#9ca3af"
                     maxLength={6}
                     keyboardType="number-pad"
                     value={otp}
@@ -448,7 +451,7 @@ export default function LoginScreen() {
                   style={styles.backButton} 
                   onPress={() => setView(view === 'forgot_otp' ? 'forgot_email' : (role === 'admin' ? 'register' : 'activate_email'))}
                 >
-                  <ArrowLeft size={16} color="#666" />
+                  <ArrowLeft size={16} color="#4b5563" />
                   <Text style={styles.backButtonText}>Back</Text>
                 </TouchableOpacity>
               </View>
@@ -467,10 +470,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>new password</Text>
                   <View style={styles.inputWrapper}>
-                    <Lock size={18} color="#999" style={styles.inputIcon} />
+                    <Lock size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="••••••••"
+                      placeholderTextColor="#9ca3af"
                       secureTextEntry
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -481,10 +485,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>confirm password</Text>
                   <View style={styles.inputWrapper}>
-                    <Lock size={18} color="#999" style={styles.inputIcon} />
+                    <Lock size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="••••••••"
+                      placeholderTextColor="#9ca3af"
                       secureTextEntry
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -504,7 +509,7 @@ export default function LoginScreen() {
                   style={styles.backButton} 
                   onPress={() => setView(view === 'forgot_password' ? 'forgot_otp' : 'activate_otp')}
                 >
-                  <ArrowLeft size={16} color="#666" />
+                  <ArrowLeft size={16} color="#4b5563" />
                   <Text style={styles.backButtonText}>Back to OTP</Text>
                 </TouchableOpacity>
               </View>
@@ -523,10 +528,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>institutional email</Text>
                   <View style={styles.inputWrapper}>
-                    <Mail size={18} color="#999" style={styles.inputIcon} />
+                    <Mail size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="name@college.edu"
+                      placeholderTextColor="#9ca3af"
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -539,7 +545,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.backButton} onPress={() => setView('login')}>
-                  <ArrowLeft size={16} color="#666" />
+                  <ArrowLeft size={16} color="#4b5563" />
                   <Text style={styles.backButtonText}>Back to Login</Text>
                 </TouchableOpacity>
               </View>
@@ -558,10 +564,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>admin full name</Text>
                   <View style={styles.inputWrapper}>
-                    <User size={18} color="#999" style={styles.inputIcon} />
+                    <User size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="John Doe"
+                      placeholderTextColor="#9ca3af"
                       value={regData.name}
                       onChangeText={(t) => setRegData({...regData, name: t})}
                     />
@@ -571,10 +578,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>admin email</Text>
                   <View style={styles.inputWrapper}>
-                    <Mail size={18} color="#999" style={styles.inputIcon} />
+                    <Mail size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="admin@college.edu"
+                      placeholderTextColor="#9ca3af"
                       value={regData.email}
                       onChangeText={(t) => setRegData({...regData, email: t})}
                       autoCapitalize="none"
@@ -585,10 +593,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>college full name</Text>
                   <View style={styles.inputWrapper}>
-                    <Building2 size={18} color="#999" style={styles.inputIcon} />
+                    <Building2 size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="e.g. Model Engineering College"
+                      placeholderTextColor="#9ca3af"
                       value={regData.orgName}
                       onChangeText={(t) => setRegData({...regData, orgName: t})}
                     />
@@ -598,10 +607,11 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>unique college slug</Text>
                   <View style={styles.inputWrapper}>
-                    <ShieldCheck size={18} color="#999" style={styles.inputIcon} />
+                    <ShieldCheck size={18} color="#6b7280" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="e.g. mec-kerala"
+                      placeholderTextColor="#9ca3af"
                       value={regData.orgSlug}
                       onChangeText={(t) => setRegData({...regData, orgSlug: t})}
                       autoCapitalize="none"
@@ -614,7 +624,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.desktopNotice}>
-                  <Monitor size={16} color="#666" />
+                  <Monitor size={16} color="#4b5563" />
                   <Text style={styles.desktopNoticeText}>After verification, manage your college using our Desktop App.</Text>
                 </View>
               </View>
@@ -654,41 +664,41 @@ const styles = StyleSheet.create({
   roleContainer: { flexDirection: 'row', backgroundColor: '#f5f5f5', borderRadius: 30, padding: 6, marginBottom: 20 },
   roleChip: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 25 },
   roleChipActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
-  roleChipText: { fontSize: 14, fontWeight: '600', color: '#999' },
+  roleChipText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
   roleChipTextActive: { color: '#105934' },
   logoContainer: { alignItems: 'center', marginBottom: 30 },
   logoImage: { width: 100, height: 100, borderRadius: 20 },
   brandTitle: { fontSize: 22, fontWeight: '800', color: '#105934', marginTop: 10 },
   viewWrapper: { width: '100%' },
   welcomeSection: { alignItems: 'center', marginBottom: 30 },
-  title: { fontSize: 26, fontWeight: '800', color: '#000', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#666', textAlign: 'center' },
+  title: { fontSize: 26, fontWeight: '800', color: '#111827', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#4b5563', textAlign: 'center' },
   formContainer: { width: '100%' },
   inputGroup: { marginBottom: 20, position: 'relative' },
-  label: { fontSize: 12, color: '#999', marginBottom: 8, fontWeight: '600', textTransform: 'lowercase' },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#eee', borderRadius: 15, paddingHorizontal: 16, height: 56 },
+  label: { fontSize: 12, color: '#555555', marginBottom: 8, fontWeight: '700', textTransform: 'lowercase' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#d1d5db', borderRadius: 15, paddingHorizontal: 16, height: 56 },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: '#000', fontWeight: '500' },
-  dropdown: { position: 'absolute', top: 85, left: 0, right: 0, backgroundColor: '#fff', borderRadius: 15, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10, maxHeight: 200, zIndex: 1000 },
-  dropdownItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f8f8f8', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dropdownText: { fontSize: 14, color: '#000', fontWeight: '500' },
-  dropdownSlug: { fontSize: 12, color: '#999', backgroundColor: '#f9f9f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5 },
+  input: { flex: 1, fontSize: 16, color: '#111827', fontWeight: '500' },
+  dropdown: { position: 'absolute', top: 85, left: 0, right: 0, backgroundColor: '#fff', borderRadius: 15, borderWidth: 1, borderColor: '#d1d5db', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10, maxHeight: 200, zIndex: 1000 },
+  dropdownItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dropdownText: { fontSize: 14, color: '#111827', fontWeight: '500' },
+  dropdownSlug: { fontSize: 12, color: '#6b7280', backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5 },
   otpInputWrapper: { alignItems: 'center', marginVertical: 30 },
   otpInput: { fontSize: 36, letterSpacing: 10, fontWeight: '800', color: '#105934', borderBottomWidth: 2, borderBottomColor: '#105934', width: '80%', textAlign: 'center', paddingBottom: 10 },
   forgotBtn: { alignSelf: 'flex-end', marginBottom: 30 },
-  forgotText: { color: '#000', fontSize: 14, fontWeight: '600' },
+  forgotText: { color: '#111827', fontSize: 14, fontWeight: '600' },
   mainButton: { backgroundColor: '#105934', height: 56, borderRadius: 30, justifyContent: 'center', alignItems: 'center', shadowColor: '#105934', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
   mainButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   subLink: { marginTop: 24, alignItems: 'center' },
   subLinkText: { color: '#105934', fontSize: 14, fontWeight: '700' },
   backButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, gap: 8 },
-  backButtonText: { color: '#666', fontSize: 14, fontWeight: '600' },
-  desktopNotice: { flexDirection: 'row', alignItems: 'center', marginTop: 20, padding: 15, backgroundColor: '#f9f9f9', borderRadius: 15, gap: 10 },
-  desktopNoticeText: { flex: 1, fontSize: 12, color: '#666', lineHeight: 18 },
+  backButtonText: { color: '#374151', fontSize: 14, fontWeight: '600' },
+  desktopNotice: { flexDirection: 'row', alignItems: 'center', marginTop: 20, padding: 15, backgroundColor: '#f3f4f6', borderRadius: 15, gap: 10 },
+  desktopNoticeText: { flex: 1, fontSize: 12, color: '#4b5563', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   successCard: { backgroundColor: '#fff', width: '100%', borderRadius: 30, padding: 40, alignItems: 'center' },
-  successTitle: { fontSize: 24, fontWeight: '800', color: '#000', marginBottom: 12, textAlign: 'center' },
-  successSubtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 30, lineHeight: 20 },
+  successTitle: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 12, textAlign: 'center' },
+  successSubtitle: { fontSize: 14, color: '#4b5563', textAlign: 'center', marginBottom: 30, lineHeight: 20 },
   successBtn: { backgroundColor: '#105934', width: '100%', height: 56, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
   successBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

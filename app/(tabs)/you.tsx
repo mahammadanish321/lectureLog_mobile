@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SwipeWrapper } from '../../src/components/SwipeWrapper';
 import {
   LogOut, ChevronRight, Bell, ShieldCheck, Mail, Phone, MapPin,
@@ -213,18 +212,6 @@ export default function YouScreen() {
               <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.7} onPress={handleLogout}>
                 <LogOut size={18} color="#ef4444" />
                 <Text style={styles.logoutText}>Sign Out from Account</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.logoutBtn, { marginTop: 12, backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }]} 
-                activeOpacity={0.7} 
-                onPress={async () => {
-                  await AsyncStorage.clear();
-                  router.replace('/login');
-                }}
-              >
-                <LogOut size={18} color="#64748b" />
-                <Text style={[styles.logoutText, { color: '#64748b', fontSize: 13 }]}>Force Clear Device Cache</Text>
               </TouchableOpacity>
             </View>
           </View>

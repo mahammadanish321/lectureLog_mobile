@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Bell, CheckCircle, AlertCircle, Info, X, Clock } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
@@ -27,6 +28,42 @@ if (!isExpoGo) {
       shouldShowList: true,
     }),
   });
+}
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web' || isExpoGo || !Device.isDevice) {
+    console.log('[Mobile Push] Push notifications require physical device and native build.');
+    return null;
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#105934',
+    });
+  }
+
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.warn('[Mobile Push] Permission not granted for push notifications.');
+      return null;
+    }
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || 'd28e3ba3-59f6-46bb-9184-606256cec543';
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    return tokenData.data;
+  } catch (err) {
+    console.warn('[Mobile Push Token Error]:', err);
+    return null;
+  }
 }
 
 const { width } = Dimensions.get('window');
@@ -116,10 +153,14 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     fetchNotifications();
 
     let notifSubscription: any = null;
-    if (!isExpoGo) {
-      Notifications.requestPermissionsAsync().then(({ status }) => {
-        console.log('[Mobile Notifications] Permission status:', status);
-      }).catch(err => console.warn('[Mobile Notifications] Permission error:', err));
+    if (Platform.OS !== 'web' && !isExpoGo && Device.isDevice) {
+      registerForPushNotificationsAsync().then(token => {
+        if (token) {
+          console.log('[Mobile Push Token]: Retrieved Expo push token:', token);
+          apiClient.post('/notifications/push-token', { pushToken: token })
+            .catch(err => console.warn('[Mobile Push Storage Error]:', err));
+        }
+      });
 
       notifSubscription = Notifications.addNotificationResponseReceivedListener(response => {
         const url = response.notification.request.content.data?.redirect_url;
