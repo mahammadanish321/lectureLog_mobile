@@ -7,6 +7,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,6 +34,7 @@ const PIVOT_OFFSET = -(STRAP_HEIGHT + 84);
 
 export default function YouScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const tiltX = useSharedValue(0);
   const tiltY = useSharedValue(0);
 
@@ -46,8 +48,9 @@ export default function YouScreen() {
     return () => subscription.remove();
   }, [tiltX, tiltY]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
   };
 
   const contactDetails = [

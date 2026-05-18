@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your local IP address if testing on a physical device
@@ -20,6 +20,18 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add a response interceptor to clear auth on 401
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userData');
+    }
     return Promise.reject(error);
   }
 );
