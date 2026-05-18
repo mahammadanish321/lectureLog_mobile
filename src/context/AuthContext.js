@@ -19,6 +19,16 @@ export const AuthProvider = ({ children }) => {
       const token = await AsyncStorage.getItem('userToken');
       if (authDataSerialized) {
         const authData = JSON.parse(authDataSerialized);
+        
+        // Mobile app is strictly for Teachers and Students. Purge any cached Admin tokens.
+        if (authData?.role === 'admin') {
+          await AsyncStorage.removeItem('userToken');
+          await AsyncStorage.removeItem('userData');
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         setUser(authData);
 
         if (token && authData?.role && authData.role !== 'admin') {
