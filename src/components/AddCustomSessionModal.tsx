@@ -24,16 +24,29 @@ const getNext7Days = () => {
   const list = [];
   const today = new Date();
   for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const iso = d.toISOString().split('T')[0];
+    const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+    
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(d);
+    const getVal = (type: string) => parts.find(p => p.type === type)!.value;
+    const iso = `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+    
     let label = '';
+    const dayName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(d);
+    const dayNum = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: 'numeric' }).format(d);
+    const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', month: 'short' }).format(d);
+    const yearNum = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(d);
+
     if (i === 0) {
-      label = `Today (${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`;
+      label = `Today (${dayNum} ${monthName})`;
     } else if (i === 1) {
-      label = `Tomorrow (${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`;
+      label = `Tomorrow (${dayNum} ${monthName})`;
     } else {
-      label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      label = `${dayName}, ${dayNum} ${monthName} ${yearNum}`;
     }
     list.push({ iso, label, dateObj: d });
   }
@@ -124,8 +137,8 @@ export const AddCustomSessionModal: React.FC<AddCustomSessionModalProps> = ({
 
     setLoading(true);
     try {
-      const startIso = `${formData.selectedDate.iso}T${formData.selectedSlot.raw_start}`;
-      const endIso = `${formData.selectedDate.iso}T${formData.selectedSlot.raw_end}`;
+      const startIso = new Date(`${formData.selectedDate.iso}T${formData.selectedSlot.raw_start}+05:30`).toISOString();
+      const endIso = new Date(`${formData.selectedDate.iso}T${formData.selectedSlot.raw_end}+05:30`).toISOString();
 
       await api.post('/sessions/start', {
         subject_id: formData.subject_id,

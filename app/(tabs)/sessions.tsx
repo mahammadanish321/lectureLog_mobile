@@ -43,7 +43,12 @@ export default function SessionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Group expansion state
-  const todayDefaultStr = new Date().toLocaleDateString('en-GB');
+  const todayDefaultStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(new Date());
   const [expandedDates, setExpandedDates] = useState<{ [key: string]: boolean }>({
     [todayDefaultStr]: true,
   });
@@ -191,7 +196,12 @@ export default function SessionsScreen() {
 
   // Build Combined Sessions list matching desktop
   const buildCombined = () => {
-    const today = new Date().toLocaleDateString('en-GB');
+    const today = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(new Date());
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const currentDayIdx = now.getDay();
@@ -202,7 +212,12 @@ export default function SessionsScreen() {
       const diff = targetIdx - currentDayIdx;
       const targetDate = new Date(now);
       targetDate.setDate(now.getDate() + diff);
-      const dateStr = targetDate.toLocaleDateString('en-GB');
+      const dateStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(targetDate);
 
       let status = 'scheduled';
       let done = false;
@@ -233,7 +248,15 @@ export default function SessionsScreen() {
           (db) =>
             !db.is_custom &&
             String(db.subject_id) === String(s.subject_id) &&
-            new Date(db.start_time).toLocaleDateString('en-GB') === dateStr
+            (() => {
+              const dObj = new Date(db.start_time);
+              return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              }).format(dObj);
+            })() === dateStr
         );
       })
       .map((s) => {
@@ -284,9 +307,21 @@ export default function SessionsScreen() {
       isCustom: !!s.is_custom,
       isDone: s.status === 'ended' || s.status === 'completed' || s.status === 'inactive',
       date: (() => {
-        if (!s.start_time || !s.start_time.includes('T')) return new Date().toLocaleDateString('en-GB');
-        const [yyyy, mm, dd] = s.start_time.split('T')[0].split('-');
-        return `${dd}/${mm}/${yyyy}`;
+        if (!s.start_time) {
+          return new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }).format(new Date());
+        }
+        const dObj = new Date(s.start_time);
+        return new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Kolkata',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }).format(dObj);
       })(),
       raw: s,
     }));
