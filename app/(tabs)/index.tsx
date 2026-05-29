@@ -22,7 +22,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllReadNotifications } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
-  const [aiStatus, setAiStatus] = useState('connecting');
+  const [aiStatus, setAiStatus] = useState<any>({ online: false, displayStatus: 'Connecting...', isError: false });
   const isTeacher = user?.role === 'teacher';
 
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -132,6 +132,14 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       if (isTeacher) {
+        // Fetch AI status from backend
+        try {
+          const statusRes = await api.get('/recognition/status');
+          setAiStatus(statusRes.data);
+        } catch (e) {
+          console.warn("Failed to fetch AI status in mobile:", e);
+        }
+
         const sessionRes = await api.get('/sessions');
         let sessions = sessionRes.data.filter((s: any) => s.status === 'active' || s.status === 'scheduled');
         sessions = sessions.filter((s: any) => String(s.teacher_name).trim().toLowerCase() === String(user?.name || '').trim().toLowerCase());
@@ -576,6 +584,18 @@ export default function Dashboard() {
                           <Text style={styles.heroTimeTextCard}>{formatTime(activeSession.start_time)} – {formatTime(activeSession.end_time)}</Text>
                         </View>
                       </View>
+
+                      {aiStatus && (
+                        <View style={[
+                          styles.heroAiStatus, 
+                          aiStatus.isError ? styles.heroAiStatusError : styles.heroAiStatusActive
+                        ]}>
+                          <Activity size={12} color={aiStatus.isError ? '#fca5a5' : '#ffffff'} />
+                          <Text style={aiStatus.isError ? styles.heroAiStatusTextError : styles.heroAiStatusText}>
+                            AI Scanner: {aiStatus.displayStatus}
+                          </Text>
+                        </View>
+                      )}
                     </>
                   ) : upcomingSession ? (
                     <>
@@ -1373,6 +1393,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  heroAiStatus: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  heroAiStatusActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  heroAiStatusError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  heroAiStatusText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  heroAiStatusTextError: {
+    color: '#fca5a5',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
 

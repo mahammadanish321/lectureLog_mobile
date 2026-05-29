@@ -135,6 +135,11 @@ export const AddCustomSessionModal: React.FC<AddCustomSessionModalProps> = ({
       return;
     }
 
+    if (!formData.selectedSlot.raw_start || !formData.selectedSlot.raw_end) {
+      Alert.alert('Invalid Slot', 'The selected time slot is missing duration details.');
+      return;
+    }
+
     setLoading(true);
     try {
       const startIso = new Date(`${formData.selectedDate.iso}T${formData.selectedSlot.raw_start}+05:30`).toISOString();

@@ -127,7 +127,7 @@ export default function ScheduleScreen() {
       const weekStartParam = formatISODate(getWeekStart(weekOffset));
 
       const [slotRes, schedRes, sessRes, attRes] = await Promise.all([
-        api.get('/time_slots'),
+        api.get(`/time_slots?week_start=${weekStartParam}`),
         api.get(`/schedules?year=${yearVal}&stream=${selectedStream}&week_start=${weekStartParam}`),
         api.get(`/sessions?week_start=${weekStartParam}`), // Fetch all sessions for this week exactly like desktop
         isStudent ? api.get('/students/my-attendance') : Promise.resolve({ data: [] }),
