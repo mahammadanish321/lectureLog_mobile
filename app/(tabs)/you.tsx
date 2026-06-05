@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../src/context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -239,7 +240,7 @@ export default function YouScreen() {
           {/* App Version */}
           <View style={styles.versionContainer}>
             <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>Merge  ·  v 1.0.2</Text>
+              <Text style={styles.versionText}>Merge  ·  v {Constants.expoConfig?.version ?? '1.0.2'}</Text>
             </View>
           </View>
 
