@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity, FlatList, ActivityIndicator, Image, Dimensions, Platform } from 'react-native';
-import { X, CheckCircle2, XCircle, Clock, User, ShieldAlert } from 'lucide-react-native';
+import { X, CheckCircle2, XCircle, Clock, User, ShieldAlert, Users } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,7 +31,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   records,
   title,
 }) => {
-  const [filter, setFilter] = useState<'present' | 'absent'>('present');
+  const [filter, setFilter] = useState<'all' | 'present' | 'absent'>('all');
 
   const presentRecords = records.filter(
     (r) => r.status && ['present', 'detected', 'processing'].includes(r.status.toLowerCase())
@@ -40,7 +40,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     (r) => !r.status || r.status.toLowerCase() === 'absent'
   );
 
-  const displayedRecords = filter === 'present' ? presentRecords : absentRecords;
+  const displayedRecords = filter === 'all' ? records : filter === 'present' ? presentRecords : absentRecords;
 
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return '--:--';
@@ -77,6 +77,25 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 
           {/* Tabbed Filters */}
           <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tabBtn, filter === 'all' && styles.tabBtnAllActive]}
+              onPress={() => setFilter('all')}
+            >
+              <Users
+                size={16}
+                color={filter === 'all' ? '#fff' : '#0f172a'}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  filter === 'all' && styles.tabTextActive,
+                  { color: filter === 'all' ? '#fff' : '#0f172a' },
+                ]}
+              >
+                All ({records.length})
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.tabBtn, filter === 'present' && styles.tabBtnPresentActive]}
               onPress={() => setFilter('present')}
@@ -138,7 +157,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 contentContainerStyle={styles.listContent}
                 renderItem={({ item }) => {
                   const avatarUri = item.image_url || `https://i.pravatar.cc/150?u=${item.student_id || item.roll_number || item.student_name}`;
-                  const isPres = filter === 'present';
+                  const isStudentPresent = !!(item.status && ['present', 'detected', 'processing'].includes(item.status.toLowerCase()));
 
                   return (
                     <View style={styles.rosterCard}>
@@ -152,7 +171,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                         </Text>
                       </View>
                       <View style={styles.statusCol}>
-                        {isPres ? (
+                        {isStudentPresent ? (
                           <>
                             <View style={[styles.statusBadge, styles.badgePresent]}>
                               <Text style={[styles.statusText, styles.textPresent]}>Present</Text>
@@ -260,6 +279,14 @@ const styles = StyleSheet.create({
   tabBtnAbsentActive: {
     backgroundColor: '#ef4444',
     shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tabBtnAllActive: {
+    backgroundColor: '#0f172a',
+    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

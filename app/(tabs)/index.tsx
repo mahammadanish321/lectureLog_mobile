@@ -347,7 +347,8 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [user, isTeacher]);
 
-  const presentCount = studentClasses.filter(cls => 
+  const activeClassesToday = studentClasses.filter(cls => !cls.is_cancelled && cls.status !== 'cancelled');
+  const presentCount = activeClassesToday.filter(cls => 
     studentAttendance.some(att => {
       const isMatch = (att.schedule_id && Number(att.schedule_id) === Number(cls.id)) ||
                       (Number(att.subject_id) === Number(cls.subject_id) && 
@@ -356,7 +357,7 @@ export default function Dashboard() {
       return isMatch && ['present', 'detected', 'processing'].includes(att.status);
     })
   ).length;
-  const totalClassesToday = studentClasses.length;
+  const totalClassesToday = activeClassesToday.length;
   const attendanceRate = totalClassesToday > 0 ? Math.round((presentCount / totalClassesToday) * 100) : 0;
 
   let groupTotal = 0;
