@@ -33,7 +33,10 @@ const getNext7Days = () => {
       day: '2-digit'
     }).formatToParts(d);
     const getVal = (type: string) => parts.find(p => p.type === type)!.value;
-    const iso = `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+    const year = getVal('year');
+    const month = getVal('month').padStart(2, '0');
+    const day = getVal('day').padStart(2, '0');
+    const iso = `${year}-${month}-${day}`;
     
     let label = '';
     const dayName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(d);
@@ -51,6 +54,31 @@ const getNext7Days = () => {
     list.push({ iso, label, dateObj: d });
   }
   return list;
+};
+
+const parseISTDateTimeToUTC = (dateIsoStr: string, timeStr: string) => {
+  if (!timeStr) throw new Error('Time string is missing');
+  
+  const trimmed = timeStr.trim();
+  const parts = trimmed.split(/\s+/);
+  const timePart = parts[0];
+  const ampm = parts[1] ? parts[1].toUpperCase() : null;
+  
+  const [year, month, day] = dateIsoStr.split('-').map(Number);
+  const timeNums = timePart.split(':').map(Number);
+  let hour = timeNums[0];
+  const minute = timeNums[1];
+  const second = timeNums[2] || 0;
+  
+  if (ampm === 'PM' && hour !== 12) {
+    hour += 12;
+  } else if (ampm === 'AM' && hour === 12) {
+    hour = 0;
+  }
+  
+  const utcMillis = Date.UTC(year, month - 1, day, hour, minute, second);
+  const istOffsetMillis = 5.5 * 60 * 60 * 1000;
+  return new Date(utcMillis - istOffsetMillis).toISOString();
 };
 
 interface AddCustomSessionModalProps {
@@ -142,8 +170,8 @@ export const AddCustomSessionModal: React.FC<AddCustomSessionModalProps> = ({
 
     setLoading(true);
     try {
-      const startIso = new Date(`${formData.selectedDate.iso}T${formData.selectedSlot.raw_start}+05:30`).toISOString();
-      const endIso = new Date(`${formData.selectedDate.iso}T${formData.selectedSlot.raw_end}+05:30`).toISOString();
+      const startIso = parseISTDateTimeToUTC(formData.selectedDate.iso, formData.selectedSlot.raw_start);
+      const endIso = parseISTDateTimeToUTC(formData.selectedDate.iso, formData.selectedSlot.raw_end);
 
       await api.post('/sessions/start', {
         subject_id: formData.subject_id,
