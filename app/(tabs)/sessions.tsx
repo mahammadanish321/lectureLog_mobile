@@ -280,11 +280,19 @@ export default function SessionsScreen() {
 
     const formatWallTime = (isoStr: string) => {
       if (!isoStr) return '--:--';
-      if (isoStr.includes('Z')) {
-        try {
-          return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch { return isoStr; }
-      }
+      try {
+        const d = new Date(isoStr);
+        if (!isNaN(d.getTime())) {
+          // Always display in IST regardless of device locale
+          return new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+          }).format(d);
+        }
+      } catch {}
+      // Fallback: parse raw time string (for routine slots like "13:35:00+05:30")
       const timePart = isoStr.includes('T') ? isoStr.split('T')[1].split('.')[0] : isoStr;
       const [h, m] = timePart.split(':');
       const hh = parseInt(h, 10);

@@ -361,8 +361,21 @@ export default function ScheduleScreen() {
                 if (!c.start_time) return false;
                 const d = new Date(c.start_time);
                 if (isNaN(d.getTime())) return false;
-                const cDate = formatISODate(d);
-                const cPrefix = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+                // Extract date and time parts in IST to correctly match the slot
+                const istParts = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: 'Asia/Kolkata',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                }).formatToParts(d);
+                const getPart = (t: string) => istParts.find(p => p.type === t)?.value || '00';
+                const cDate = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+                const cHour = getPart('hour').padStart(2, '0');
+                const cMinute = getPart('minute').padStart(2, '0');
+                const cPrefix = `${cHour}:${cMinute}`;
                 return cDate === targetDateStr && cPrefix === slotPrefix;
               });
 
@@ -408,9 +421,20 @@ export default function ScheduleScreen() {
                               if (String(sess.subject_id) !== String(item.subject_id)) return false;
                               if (!sess.start_time) return false;
                               const sDate = new Date(sess.start_time);
-                              if (formatISODate(sDate) !== targetDateStr) return false;
-                              const sPrefix =
-                                String(sDate.getHours()).padStart(2, '0') + ':' + String(sDate.getMinutes()).padStart(2, '0');
+                              // Use IST for date/hour comparison
+                              const sIstParts = new Intl.DateTimeFormat('en-CA', {
+                                timeZone: 'Asia/Kolkata',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false,
+                              }).formatToParts(sDate);
+                              const sGetP = (t: string) => sIstParts.find(p => p.type === t)?.value || '00';
+                              const sDateStr = `${sGetP('year')}-${sGetP('month')}-${sGetP('day')}`;
+                              if (sDateStr !== targetDateStr) return false;
+                              const sPrefix = `${sGetP('hour').padStart(2, '0')}:${sGetP('minute').padStart(2, '0')}`;
                               return sPrefix === slotPrefix;
                             });
 
