@@ -236,6 +236,13 @@ export default function YouScreen() {
             </View>
           </View>
 
+          {/* App Version */}
+          <View style={styles.versionContainer}>
+            <View style={styles.versionBadge}>
+              <Text style={styles.versionText}>Merge  ·  v 1.0.2</Text>
+            </View>
+          </View>
+
           <View style={{ height: 120 }} />
         </ScrollView>
       </View>
@@ -436,5 +443,27 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#f8fafc',
     marginLeft: 52,
+  },
+  versionContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 28,
+    paddingBottom: 4,
+  },
+  versionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(148, 163, 184, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+  },
+  versionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.4,
   },
 });
